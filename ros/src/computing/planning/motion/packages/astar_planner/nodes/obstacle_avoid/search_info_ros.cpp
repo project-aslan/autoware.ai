@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,7 +50,7 @@ SearchInfo::~SearchInfo()
 {
 }
 
-double SearchInfo::calcPathLength(const autoware_msgs::Lane &lane, const int start_waypoint_index,
+double SearchInfo::calcPathLength(const aslan_msgs::Lane &lane, const int start_waypoint_index,
                                   const int goal_waypoint_index) const
 {
   if (lane.waypoints.size() <= 1)
@@ -158,7 +164,7 @@ void SearchInfo::goalCallback(const geometry_msgs::PoseStampedConstPtr &msg)
 }
 
 // get waypoints
-void SearchInfo::waypointsCallback(const autoware_msgs::LaneConstPtr &msg)
+void SearchInfo::waypointsCallback(const aslan_msgs::LaneConstPtr &msg)
 {
   subscribed_waypoints_ = *msg;
 

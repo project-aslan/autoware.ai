@@ -1,14 +1,11 @@
 cmake_minimum_required(VERSION 2.8.3)
+
+find_package(aslan_build_flags REQUIRED)
+
 project(waypoint_follower)
 
+find_package(aslan_msgs REQUIRED)
 
-find_package(autoware_build_flags REQUIRED)
-
-find_package(autoware_msgs REQUIRED)
-
-find_package(autoware_config_msgs REQUIRED)
-
-find_package(tablet_socket_msgs REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
         roscpp
         std_msgs
@@ -17,9 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
         pcl_ros
         pcl_conversions
         sensor_msgs
-        autoware_msgs
-        autoware_config_msgs
-        tablet_socket_msgs
+        aslan_msgs
         )
 
 ################################################
@@ -36,12 +31,10 @@ catkin_package(
         std_msgs
         tf
         geometry_msgs
-        autoware_msgs
-        autoware_config_msgs
+        aslan_msgs
         pcl_ros
         pcl_conversions
         sensor_msgs
-        tablet_socket_msgs
 )
 
 ###########
@@ -52,9 +45,7 @@ SET(CMAKE_CXX_FLAGS "-O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 
 include_directories(
         include
-        ${autoware_config_msgs_INCLUDE_DIRS}
-        ${autoware_msgs_INCLUDE_DIRS}
-        ${tablet_socket_msgs_INCLUDE_DIRS}
+        ${aslan_msgs_INCLUDE_DIRS}
         ${catkin_INCLUDE_DIRS}
 )
 
@@ -74,8 +65,6 @@ target_link_libraries(pure_pursuit libwaypoint_follower ${catkin_LIBRARIES})
 add_dependencies(pure_pursuit
         ${catkin_EXPORTED_TARGETS})
 
-add_executable(wf_simulator nodes/wf_simulator/wf_simulator.cpp)
-target_link_libraries(wf_simulator libwaypoint_follower ${catkin_LIBRARIES})
 
 add_executable(twist_filter nodes/twist_filter/twist_filter.cpp)
 target_link_libraries(twist_filter ${catkin_LIBRARIES})
@@ -88,7 +77,7 @@ add_dependencies(twist_gate
         ${catkin_EXPORTED_TARGETS})
 
 ## Install executables and/or libraries
-install(TARGETS libwaypoint_follower pure_pursuit wf_simulator twist_filter twist_gate
+install(TARGETS libwaypoint_follower pure_pursuit twist_filter twist_gate
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})

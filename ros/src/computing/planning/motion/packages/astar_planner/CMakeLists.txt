@@ -1,12 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(astar_planner)
 
+find_package(aslan_msgs REQUIRED)
+find_package(aslan_build_flags REQUIRED)
 
-find_package(autoware_build_flags REQUIRED)
-
-find_package(autoware_msgs REQUIRED)
-
-find_package(vector_map REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
@@ -14,14 +11,16 @@ find_package(catkin REQUIRED COMPONENTS
   pcl_conversions
   tf
   waypoint_follower
-  autoware_msgs 
+  aslan_msgs 
 )
 
 ###################################
 ## catkin specific configuration ##
 ###################################
 catkin_package(
-  CATKIN_DEPENDS roscpp std_msgs tf waypoint_follower autoware_msgs vector_map
+  INCLUDE_DIRS nodes/velocity_set
+  LIBRARIES ${PROJECT_NAME}
+  CATKIN_DEPENDS roscpp std_msgs tf waypoint_follower aslan_msgs
 )
 
 ###########
@@ -32,8 +31,18 @@ SET(CMAKE_CXX_FLAGS "-O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 
 include_directories(
   ${catkin_INCLUDE_DIRS}
-  ${vector_map_INCLUDE_DIRS}
-  ${autoware_msgs_INCLUDE_DIRS}
+)
+
+add_library(${PROJECT_NAME} nodes/velocity_set/velocity_set_path.cpp)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
+install(TARGETS ${PROJECT_NAME}
+        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+        RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+)
+install(
+  DIRECTORY nodes/velocity_set/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
 )
 
 add_executable(velocity_set nodes/velocity_set/velocity_set.cpp nodes/velocity_set/velocity_set_path.cpp nodes/velocity_set/velocity_set_info.cpp nodes/velocity_set/libvelocity_set.cpp)

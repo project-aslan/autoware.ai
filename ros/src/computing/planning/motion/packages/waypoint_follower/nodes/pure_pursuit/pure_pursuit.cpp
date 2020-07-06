@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,8 +30,8 @@ PurePursuit::PurePursuit()
   , KAPPA_MIN_(1 / RADIUS_MAX_)
   , is_linear_interpolation_(false)
   , next_waypoint_number_(-1)
-  , lookahead_distance_(0)
   , current_linear_velocity_(0)
+  , lookahead_distance_(0)
   , minimum_lookahead_distance_(6)
 {
 }

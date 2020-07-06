@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ *  Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,18 +31,13 @@
 #include <string>
 
 #include "waypoint_follower/libwaypoint_follower.h"
-#include "autoware_msgs/LaneArray.h"
-#include "autoware_config_msgs/ConfigLaneStop.h"
-#include "autoware_msgs/TrafficLight.h"
+#include "aslan_msgs/LaneArray.h"
+#include "aslan_msgs/ConfigLaneStop.h"
 
 namespace
 {
 ros::Publisher g_local_mark_pub;
 ros::Publisher g_global_mark_pub;
-
-constexpr int32_t TRAFFIC_LIGHT_RED = 0;
-constexpr int32_t TRAFFIC_LIGHT_GREEN = 1;
-constexpr int32_t TRAFFIC_LIGHT_UNKNOWN = 2;
 
 std_msgs::ColorRGBA _initial_color;
 std_msgs::ColorRGBA _global_color;
@@ -90,7 +91,7 @@ void publishMarkerArray(const visualization_msgs::MarkerArray& marker_array, con
 
 
 
-void createGlobalLaneArrayVelocityMarker(const autoware_msgs::LaneArray& lane_waypoints_array)
+void createGlobalLaneArrayVelocityMarker(const aslan_msgs::LaneArray& lane_waypoints_array)
 {
   visualization_msgs::MarkerArray tmp_marker_array;
   // display by markers the velocity of each waypoint.
@@ -131,7 +132,7 @@ void createGlobalLaneArrayVelocityMarker(const autoware_msgs::LaneArray& lane_wa
                                        tmp_marker_array.markers.end());
 }
 
-void createGlobalLaneArrayChangeFlagMarker(const autoware_msgs::LaneArray& lane_waypoints_array)
+void createGlobalLaneArrayChangeFlagMarker(const aslan_msgs::LaneArray& lane_waypoints_array)
 {
   visualization_msgs::MarkerArray tmp_marker_array;
   // display by markers the velocity of each waypoint.
@@ -190,7 +191,7 @@ void createGlobalLaneArrayChangeFlagMarker(const autoware_msgs::LaneArray& lane_
 }
 
 void createLocalWaypointVelocityMarker(std_msgs::ColorRGBA color, int closest_waypoint,
-                                       const autoware_msgs::Lane& lane_waypoint)
+                                       const aslan_msgs::Lane& lane_waypoint)
 {
   // display by markers the velocity of each waypoint.
   visualization_msgs::Marker velocity;
@@ -220,7 +221,7 @@ void createLocalWaypointVelocityMarker(std_msgs::ColorRGBA color, int closest_wa
   }
 }
 
-void createGlobalLaneArrayMarker(std_msgs::ColorRGBA color, const autoware_msgs::LaneArray& lane_waypoints_array)
+void createGlobalLaneArrayMarker(std_msgs::ColorRGBA color, const aslan_msgs::LaneArray& lane_waypoints_array)
 {
   visualization_msgs::Marker lane_waypoint_marker;
   lane_waypoint_marker.header.frame_id = "map";
@@ -249,7 +250,7 @@ void createGlobalLaneArrayMarker(std_msgs::ColorRGBA color, const autoware_msgs:
   }
 }
 
-void createGlobalLaneArrayOrientationMarker(const autoware_msgs::LaneArray& lane_waypoints_array)
+void createGlobalLaneArrayOrientationMarker(const aslan_msgs::LaneArray& lane_waypoints_array)
 {
   visualization_msgs::MarkerArray tmp_marker_array;
   visualization_msgs::Marker lane_waypoint_marker;
@@ -282,7 +283,7 @@ void createGlobalLaneArrayOrientationMarker(const autoware_msgs::LaneArray& lane
                                        tmp_marker_array.markers.end());
 }
 
-void createLocalPathMarker(std_msgs::ColorRGBA color, const autoware_msgs::Lane& lane_waypoint)
+void createLocalPathMarker(std_msgs::ColorRGBA color, const aslan_msgs::Lane& lane_waypoint)
 {
   visualization_msgs::Marker lane_waypoint_marker;
   lane_waypoint_marker.header.frame_id = "map";
@@ -304,7 +305,7 @@ void createLocalPathMarker(std_msgs::ColorRGBA color, const autoware_msgs::Lane&
   g_local_waypoints_marker_array.markers.push_back(lane_waypoint_marker);
 }
 
-void createLocalPointMarker(const autoware_msgs::Lane& lane_waypoint)
+void createLocalPointMarker(const aslan_msgs::Lane& lane_waypoint)
 {
   visualization_msgs::Marker lane_waypoint_marker;
   lane_waypoint_marker.header.frame_id = "map";
@@ -329,60 +330,12 @@ void createLocalPointMarker(const autoware_msgs::Lane& lane_waypoint)
   g_local_waypoints_marker_array.markers.push_back(lane_waypoint_marker);
 }
 
-void lightCallback(const autoware_msgs::TrafficLightConstPtr& msg)
-{
-  std_msgs::ColorRGBA global_color;
-  global_color.a = g_global_alpha;
-
-  std_msgs::ColorRGBA local_color;
-  local_color.a = g_local_alpha;
-
-  switch (msg->traffic_light)
-  {
-    case TRAFFIC_LIGHT_RED:
-      global_color.r = 1.0;
-      _global_color = global_color;
-      local_color.r = 1.0;
-      g_local_color = local_color;
-      break;
-    case TRAFFIC_LIGHT_GREEN:
-      global_color.g = 1.0;
-      _global_color = global_color;
-      local_color.g = 1.0;
-      g_local_color = local_color;
-      break;
-    case TRAFFIC_LIGHT_UNKNOWN:
-      global_color.b = 1.0;
-      global_color.g = 0.7;
-      _global_color = global_color;
-      local_color.b = 1.0;
-      local_color.g = 0.7;
-      g_local_color = local_color;
-      break;
-    default:
-      ROS_ERROR("unknown traffic_light");
-      return;
-  }
-}
-
-void receiveAutoDetection(const autoware_msgs::TrafficLightConstPtr& msg)
-{
-  if (!g_config_manual_detection)
-    lightCallback(msg);
-}
-
-void receiveManualDetection(const autoware_msgs::TrafficLightConstPtr& msg)
-{
-  if (g_config_manual_detection)
-    lightCallback(msg);
-}
-
-void configParameter(const autoware_config_msgs::ConfigLaneStopConstPtr& msg)
+void configParameter(const aslan_msgs::ConfigLaneStopConstPtr& msg)
 {
   g_config_manual_detection = msg->manual_detection;
 }
 
-void laneArrayCallback(const autoware_msgs::LaneArrayConstPtr& msg)
+void laneArrayCallback(const aslan_msgs::LaneArrayConstPtr& msg)
 {
   publishMarkerArray(g_global_marker_array, g_global_mark_pub, true);
   g_global_marker_array.markers.clear();
@@ -392,7 +345,7 @@ void laneArrayCallback(const autoware_msgs::LaneArrayConstPtr& msg)
   publishMarkerArray(g_global_marker_array, g_global_mark_pub);
 }
 
-void finalCallback(const autoware_msgs::LaneConstPtr& msg)
+void finalCallback(const aslan_msgs::LaneConstPtr& msg)
 {
   g_local_waypoints_marker_array.markers.clear();
   if (_closest_waypoint != -1)
@@ -414,10 +367,6 @@ int main(int argc, char** argv)
   ros::init(argc, argv, "waypoints_marker_publisher");
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
-
-  // subscribe traffic light
-  ros::Subscriber light_sub = nh.subscribe("light_color", 10, receiveAutoDetection);
-  ros::Subscriber light_managed_sub = nh.subscribe("light_color_managed", 10, receiveManualDetection);
 
   // subscribe global waypoints
   ros::Subscriber lane_array_sub = nh.subscribe("lane_waypoints_array", 10, laneArrayCallback);

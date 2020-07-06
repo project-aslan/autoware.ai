@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -158,7 +164,7 @@ double getRelativeAngle(geometry_msgs::Pose waypoint_pose, geometry_msgs::Pose v
 }
 
 // get closest waypoint from current pose
-int getClosestWaypoint(const autoware_msgs::Lane &current_path, geometry_msgs::Pose current_pose)
+int getClosestWaypoint(const aslan_msgs::Lane &current_path, geometry_msgs::Pose current_pose)
 {
   WayPoints wp;
   wp.setPath(current_path);

@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ *  Original copyright notice:
  *  Copyright (c) 2018, TierIV, Inc.
 
  *  All rights reserved.
@@ -33,12 +39,12 @@
 
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
-#include <autoware_config_msgs/ConfigWaypointLoader.h>
+#include <aslan_msgs/ConfigWaypointLoader.h>
 #include <fstream>
 #include <unordered_map>
 #include <algorithm>
 #include <boost/circular_buffer.hpp>
-#include "autoware_msgs/Lane.h"
+#include "aslan_msgs/Lane.h"
 
 namespace waypoint_maker
 {
@@ -58,32 +64,32 @@ private:
 public:
   VelocityReplanner();
   ~VelocityReplanner();
-  void initParameter(const autoware_config_msgs::ConfigWaypointLoader::ConstPtr& conf);
-  void replanLaneWaypointVel(autoware_msgs::Lane* lane);
+  void initParameter();
+  void replanLaneWaypointVel(aslan_msgs::Lane* lane);
 
 protected:
-  void resampleLaneWaypoint(const double resample_interval, autoware_msgs::Lane* lane);
-  void resampleOnStraight(const boost::circular_buffer<geometry_msgs::Point>& curve_point, autoware_msgs::Lane* lane);
+  void resampleLaneWaypoint(const double resample_interval, aslan_msgs::Lane* lane);
+  void resampleOnStraight(const boost::circular_buffer<geometry_msgs::Point>& curve_point, aslan_msgs::Lane* lane);
   void resampleOnCurve(const geometry_msgs::Point& target_point, const std::vector<double>& param,
-                       autoware_msgs::Lane* lane);
+                       aslan_msgs::Lane* lane);
 
-  const boost::circular_buffer<geometry_msgs::Point> getCrvPointsOnResample(const autoware_msgs::Lane& lane,
-                                                                            const autoware_msgs::Lane& original_lane,
+  const boost::circular_buffer<geometry_msgs::Point> getCrvPointsOnResample(const aslan_msgs::Lane& lane,
+                                                                            const aslan_msgs::Lane& original_lane,
                                                                             unsigned long original_index) const;
-  const boost::circular_buffer<geometry_msgs::Point> getCrvPoints(const autoware_msgs::Lane& lane,
+  const boost::circular_buffer<geometry_msgs::Point> getCrvPoints(const aslan_msgs::Lane& lane,
                                                                   unsigned long index) const;
 
-  void createRadiusList(const autoware_msgs::Lane& lane, std::vector<double>* curve_radius);
+  void createRadiusList(const aslan_msgs::Lane& lane, std::vector<double>* curve_radius);
   const double calcVelParam() const;
   void createCurveList(const std::vector<double>& curve_radius,
                        std::unordered_map<unsigned long, std::pair<unsigned long, double> >* curve_list);
 
   void limitVelocityByRange(unsigned long start_idx, unsigned long end_idx, unsigned int offset, double vmin,
-                            autoware_msgs::Lane* lane);
-  void limitAccelDecel(const unsigned long idx, autoware_msgs::Lane* lane);
+                            aslan_msgs::Lane* lane);
+  void limitAccelDecel(const unsigned long idx, aslan_msgs::Lane* lane);
 
   const std::vector<double> calcCurveParam(boost::circular_buffer<geometry_msgs::Point> point) const;
-  const double calcPathLength(const autoware_msgs::Lane& lane) const;
+  const double calcPathLength(const aslan_msgs::Lane& lane) const;
 };
 }
 #endif

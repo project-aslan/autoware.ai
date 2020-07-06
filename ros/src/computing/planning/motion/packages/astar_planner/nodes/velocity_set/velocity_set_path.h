@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,14 +23,14 @@
 #ifndef VELOCITY_SET_PATH_H
 #define VELOCITY_SET_PATH_H
 
-#include <autoware_msgs/Lane.h>
+#include <aslan_msgs/Lane.h>
 #include "waypoint_follower/libwaypoint_follower.h"
 class VelocitySetPath
 {
  private:
-  autoware_msgs::Lane prev_waypoints_;
-  autoware_msgs::Lane new_waypoints_;
-  autoware_msgs::Lane temporal_waypoints_;
+  aslan_msgs::Lane prev_waypoints_;
+  aslan_msgs::Lane new_waypoints_;
+  aslan_msgs::Lane temporal_waypoints_;
   bool set_path_;
   double current_vel_;
 
@@ -47,22 +53,22 @@ class VelocitySetPath
   void resetFlag();
 
   // ROS Callbacks
-  void waypointsCallback(const autoware_msgs::LaneConstPtr& msg);
+  void waypointsCallback(const aslan_msgs::LaneConstPtr& msg);
   void currentVelocityCallback(const geometry_msgs::TwistStampedConstPtr& msg);
 
   double calcInterval(const int begin, const int end) const;
 
-  autoware_msgs::Lane getPrevWaypoints() const
+  aslan_msgs::Lane getPrevWaypoints() const
   {
     return prev_waypoints_;
   }
 
-  autoware_msgs::Lane getNewWaypoints() const
+  aslan_msgs::Lane getNewWaypoints() const
   {
     return new_waypoints_;
   }
 
-  autoware_msgs::Lane getTemporalWaypoints() const
+  aslan_msgs::Lane getTemporalWaypoints() const
   {
     return temporal_waypoints_;
   }

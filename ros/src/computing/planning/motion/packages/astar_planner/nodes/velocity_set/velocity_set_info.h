@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,43 +27,52 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <std_msgs/Int32.h>
-
-#include "autoware_config_msgs/ConfigVelocitySet.h"
+#include <aslan_msgs/ConfigVelocitySet.h>
 
 class VelocitySetInfo
 {
  private:
   // parameters
-  double stop_range_;               // if obstacle is in this range, stop
-  double deceleration_range_;       // if obstacle is in this range, decelerate
-  int points_threshold_;            // points threshold to find obstacles
-  double detection_height_top_;     // from sensor
-  double detection_height_bottom_;  // from sensor
-  double stop_distance_obstacle_;   // (meter) stopping distance from obstacles
-  double stop_distance_stopline_;   // (meter) stopping distance from stoplines
-  double deceleration_obstacle_;    // (m/s^2) deceleration for obstacles
-  double deceleration_stopline_;    // (m/s^2) deceleration for stopline
-  double velocity_change_limit_;    // (m/s)
-  double temporal_waypoints_size_;  // (meter)
-  int	wpidx_detectionResultByOtherNodes_; // waypoints index@finalwaypoints
+    double stop_distance_obstacle_;   // (meter) stopping distance from obstacles
+	double stop_distance_stopline_;   // (meter) stopping distance from stoplines
+	int radar_points_threshold_;
+	double stop_range_;               // if obstacle is in this range, stop
+	int points_threshold_;            // points threshold to find obstacles for lidar
+	double detection_height_top_;     // from lidar sensor
+	double detection_height_bottom_;  // from lidar sensor
+	double radar_detection_height_top_;     // from radar sensor
+	double radar_detection_height_bottom_;  // from radar sensor
+	double deceleration_obstacle_;    // (m/s^2) deceleration for obstacles
+	double deceleration_stopline_;    // (m/s^2) deceleration for stopline
+	double accelerate_max_;    // (m/s^2) deceleration for obstacles
+	double velocity_change_limit_;    // (m/s)
+	double deceleration_range_;       // if obstacle is in this range, decelerate
+	double temporal_waypoints_size_;  // (meter)
+
 
   // ROS param
   double remove_points_upto_;
 
   pcl::PointCloud<pcl::PointXYZ> points_;
+  pcl::PointCloud<pcl::PointXYZ> radar_points_;
   pcl::PointCloud<pcl::PointXYZ> obstacle_sim_points_;
   geometry_msgs::PoseStamped localizer_pose_;  // pose of sensor
   geometry_msgs::PoseStamped control_pose_;    // pose of base_link
   bool set_pose_;
   bool use_obstacle_sim_;
+  int  wpidx_detectionResultByOtherNodes_; // waypoints index@finalwaypoints
 
- public:
+
+public:
   VelocitySetInfo();
   ~VelocitySetInfo();
 
   // ROS Callback
-  void configCallback(const autoware_config_msgs::ConfigVelocitySetConstPtr &msg);
+  void InitParam(ros::NodeHandle private_nh_);
+  void param_callback(const aslan_msgs::ConfigVelocitySet::ConstPtr& input);
   void pointsCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
+  void radar_pointsCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
+
   void controlPoseCallback(const geometry_msgs::PoseStampedConstPtr &msg);
   void localizerPoseCallback(const geometry_msgs::PoseStampedConstPtr &msg);
   void obstacleSimCallback(const sensor_msgs::PointCloud2ConstPtr &msg);
@@ -86,14 +101,9 @@ class VelocitySetInfo
     return points_threshold_;
   }
 
-  int getDetectionHeightTop() const
+  int getRadarPointsThreshold() const
   {
-    return detection_height_top_;
-  }
-
-  int getDetectionHeightBottom() const
-  {
-    return detection_height_bottom_;
+      return radar_points_threshold_;
   }
 
   int getStopDistanceObstacle() const
@@ -116,6 +126,11 @@ class VelocitySetInfo
     return deceleration_stopline_;
   }
 
+  double getAccelerateMax() const
+  {
+    return accelerate_max_;
+  }
+  
   double getVelocityChangeLimit() const
   {
     return velocity_change_limit_;
@@ -129,6 +144,11 @@ class VelocitySetInfo
   pcl::PointCloud<pcl::PointXYZ> getPoints() const
   {
     return points_;
+  }
+
+  pcl::PointCloud<pcl::PointXYZ> getRadarPoints() const
+  {
+      return radar_points_;
   }
 
   geometry_msgs::PoseStamped getControlPose() const

@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,7 +30,7 @@
 #include <geometry_msgs/TwistStamped.h>
 
 // User defined includes
-#include "autoware_msgs/Lane.h"
+#include "aslan_msgs/Lane.h"
 #include "waypoint_follower/libwaypoint_follower.h"
 
 namespace waypoint_follower
@@ -48,7 +54,7 @@ public:
   {
     current_linear_velocity_ = cur_vel;
   }
-  void setCurrentWaypoints(const std::vector<autoware_msgs::Waypoint> &wps)
+  void setCurrentWaypoints(const std::vector<aslan_msgs::Waypoint> &wps)
   {
     current_waypoints_ = wps;
   }
@@ -74,7 +80,7 @@ public:
   {
     return current_pose_;
   }
-  std::vector<autoware_msgs::Waypoint> getCurrentWaypoints() const
+  std::vector<aslan_msgs::Waypoint> getCurrentWaypoints() const
   {
     return current_waypoints_;
   }
@@ -98,11 +104,11 @@ private:
   bool is_linear_interpolation_;
   int next_waypoint_number_;
   geometry_msgs::Point next_target_position_;
+  double current_linear_velocity_;
+  geometry_msgs::Pose current_pose_;
+  std::vector<aslan_msgs::Waypoint> current_waypoints_;
   double lookahead_distance_;
   double minimum_lookahead_distance_;
-  geometry_msgs::Pose current_pose_;
-  double current_linear_velocity_;
-  std::vector<autoware_msgs::Waypoint> current_waypoints_;
 
   // functions
   double calcCurvature(geometry_msgs::Point target) const;

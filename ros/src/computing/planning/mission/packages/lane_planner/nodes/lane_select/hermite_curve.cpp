@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,11 +41,11 @@ void getPointAndVectorFromPose(const geometry_msgs::Pose &pose, Element2D *point
   vector->set(tmp_tf_vevtor.getX(), tmp_tf_vevtor.getY());
 }
 
-std::vector<autoware_msgs::Waypoint> generateHermiteCurveForROS(const geometry_msgs::Pose &start,
+std::vector<aslan_msgs::Waypoint> generateHermiteCurveForROS(const geometry_msgs::Pose &start,
                                                                 const geometry_msgs::Pose &end,
                                                                 const double velocity_mps, const double vlength)
 {
-  std::vector<autoware_msgs::Waypoint> wps;
+  std::vector<aslan_msgs::Waypoint> wps;
   Element2D p0(0, 0), v0(0, 0), p1(0, 0), v1(0, 0);
   getPointAndVectorFromPose(start, &p0, &v0);
   getPointAndVectorFromPose(end, &p1, &v1);
@@ -49,7 +55,7 @@ std::vector<autoware_msgs::Waypoint> generateHermiteCurveForROS(const geometry_m
   double height_d = fabs(start.position.z - end.position.z);
   for (uint32_t i = 0; i < result.size(); i++)
   {
-    autoware_msgs::Waypoint wp;
+    aslan_msgs::Waypoint wp;
     wp.pose.pose.position.x = result.at(i).x;
     wp.pose.pose.position.y = result.at(i).y;
     wp.twist.twist.linear.x = velocity_mps;

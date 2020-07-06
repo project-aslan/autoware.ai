@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +34,7 @@
 #include <ros/ros.h>
 #include <tf/transform_datatypes.h>
 
-#include "autoware_msgs/Waypoint.h"
+#include "aslan_msgs/Waypoint.h"
 
 namespace lane_planner
 {
@@ -50,7 +56,7 @@ struct Element2D
 
 std::vector<Element2D> generateHermiteCurve(const Element2D &p0, const Element2D &v0, const Element2D &p1,
                                             const Element2D &v1, const double vlength = 20);
-std::vector<autoware_msgs::Waypoint> generateHermiteCurveForROS(const geometry_msgs::Pose &start,
+std::vector<aslan_msgs::Waypoint> generateHermiteCurveForROS(const geometry_msgs::Pose &start,
                                                                 const geometry_msgs::Pose &end, const double velocity,
                                                                 const double vlength);
 void createVectorFromPose(const geometry_msgs::Pose &p, tf::Vector3 *v);

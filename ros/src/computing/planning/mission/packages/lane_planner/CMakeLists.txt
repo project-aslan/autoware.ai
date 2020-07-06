@@ -1,69 +1,35 @@
-cmake_minimum_required(VERSION 2.8.12)
+cmake_minimum_required(VERSION 2.8.3)
 project(lane_planner)
 
+find_package(aslan_build_flags REQUIRED)
+find_package(aslan_msgs REQUIRED)
 
-find_package(autoware_build_flags REQUIRED)
-
-find_package(autoware_msgs REQUIRED)
-
-find_package(vector_map REQUIRED)
 find_package(catkin REQUIRED COMPONENTS
         roscpp
         std_msgs
-        tablet_socket
         waypoint_follower
-        gnss
-        autoware_msgs
+        aslan_msgs
         )
 
 set(CMAKE_CXX_FLAGS "-O2 -Wall ${CMAKE_CXX_FLAGS}")
 
 catkin_package(
-        INCLUDE_DIRS include
-        LIBRARIES lane_planner
         CATKIN_DEPENDS roscpp
         std_msgs
-        tablet_socket
         waypoint_follower
-        vector_map
-        gnss
-        autoware_msgs
+        aslan_msgs
 )
 
 include_directories(
-        include
         ${catkin_INCLUDE_DIRS}
-        ${vector_map_INCLUDE_DIRS}
-        ${autoware_msgs_INCLUDE_DIRS}
+        ${aslan_msgs_INCLUDE_DIRS}
 )
 
-add_library(lane_planner lib/lane_planner/lane_planner_vmap.cpp)
-target_link_libraries(lane_planner ${catkin_LIBRARIES})
-add_dependencies(lane_planner
-        ${catkin_EXPORTED_TARGETS}
-        )
-
-add_executable(lane_navi nodes/lane_navi/lane_navi.cpp)
-target_link_libraries(lane_navi
-        lane_planner
+add_executable(traffic_waypoints nodes/traffic_waypoints/traffic_waypoints.cpp)
+target_link_libraries(traffic_waypoints
         ${catkin_LIBRARIES}
         )
-add_dependencies(lane_navi
-        ${catkin_EXPORTED_TARGETS}
-        )
-
-add_executable(lane_rule nodes/lane_rule/lane_rule.cpp)
-target_link_libraries(lane_rule
-        lane_planner
-        ${catkin_LIBRARIES}
-        )
-add_dependencies(lane_rule
-        ${catkin_EXPORTED_TARGETS}
-        )
-
-add_executable(lane_stop nodes/lane_stop/lane_stop.cpp)
-target_link_libraries(lane_stop lane_planner ${catkin_LIBRARIES})
-add_dependencies(lane_stop
+add_dependencies(traffic_waypoints
         ${catkin_EXPORTED_TARGETS}
         )
 
@@ -77,17 +43,10 @@ add_dependencies(lane_select
         ${catkin_EXPORTED_TARGETS}
         )
 
-install(DIRECTORY include/${PROJECT_NAME}/
-        DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-        FILES_MATCHING PATTERN "*.hpp"
-        )
 
 install(TARGETS
+        traffic_waypoints
         lane_select
-        lane_stop
-        lane_rule
-        lane_navi
-        lane_planner
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}

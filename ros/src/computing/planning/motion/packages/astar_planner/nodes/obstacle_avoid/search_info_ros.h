@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,7 +24,7 @@
 #define SEARCH_INFO_ROS_H
 
 #include "astar_util.h"
-#include "autoware_msgs/Lane.h"
+#include "aslan_msgs/Lane.h"
 #include "waypoint_follower/libwaypoint_follower.h"
 
 #include <nav_msgs/OccupancyGrid.h>
@@ -41,7 +47,7 @@ public:
   void goalCallback(const geometry_msgs::PoseStampedConstPtr &msg);
   void currentPoseCallback(const geometry_msgs::PoseStampedConstPtr &msg);
   void currentVelocityCallback(const geometry_msgs::TwistStampedConstPtr &msg);
-  void waypointsCallback(const autoware_msgs::LaneConstPtr &msg);
+  void waypointsCallback(const aslan_msgs::LaneConstPtr &msg);
   void closestWaypointCallback(const std_msgs::Int32ConstPtr &msg);
   void obstacleWaypointCallback(const std_msgs::Int32ConstPtr &msg);
   void stateCallback(const std_msgs::StringConstPtr &msg);
@@ -87,11 +93,11 @@ public:
   {
     return current_velocity_mps_;
   }
-  autoware_msgs::Lane getSubscribedWaypoints() const
+  aslan_msgs::Lane getSubscribedWaypoints() const
   {
     return subscribed_waypoints_;
   }
-  autoware_msgs::Lane getCurrentWaypoints() const
+  aslan_msgs::Lane getCurrentWaypoints() const
   {
     return current_waypoints_;
   }
@@ -129,7 +135,7 @@ public:
   }
 
   // set method
-  void setCurrentWaypoints(const autoware_msgs::Lane &waypoints)
+  void setCurrentWaypoints(const aslan_msgs::Lane &waypoints)
   {
     current_waypoints_ = waypoints;
   }
@@ -138,7 +144,7 @@ public:
   void reset();
 
 private:
-  double calcPathLength(const autoware_msgs::Lane &lane, const int start_waypoint_index,
+  double calcPathLength(const aslan_msgs::Lane &lane, const int start_waypoint_index,
                         const int goal_waypoint_index) const;
 
   nav_msgs::OccupancyGrid map_;
@@ -148,7 +154,7 @@ private:
   geometry_msgs::PoseStamped start_pose_local_;
   geometry_msgs::PoseStamped goal_pose_local_;
   geometry_msgs::PoseStamped transit_pose_local_;
-  // Transform which converts global frame (/map in Autoware) to OccupancyGrid frame
+  // Transform which converts global frame (/map) to OccupancyGrid frame
   tf::Transform ogm2map_;
   tf::TransformListener tf_listener_;
 
@@ -172,8 +178,8 @@ private:
   int obstacle_waypoint_index_;
   int start_waypoint_index_;
   int goal_waypoint_index_;
-  autoware_msgs::Lane subscribed_waypoints_;
-  autoware_msgs::Lane current_waypoints_;
+  aslan_msgs::Lane subscribed_waypoints_;
+  aslan_msgs::Lane current_waypoints_;
   geometry_msgs::PoseStamped current_pose_;
   double current_velocity_mps_;
   std::string state_;

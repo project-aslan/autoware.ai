@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  *  Copyright (c) 2017, Tier IV, Inc.
  *  All rights reserved.
  *
@@ -39,19 +45,17 @@
 #include <std_msgs/String.h>
 #include <geometry_msgs/TwistStamped.h>
 
-#include "autoware_msgs/RemoteCmd.h"
-#include "autoware_msgs/VehicleCmd.h"
-#include "tablet_socket_msgs/mode_cmd.h"
-#include "tablet_socket_msgs/gear_cmd.h"
-#include "autoware_msgs/AccelCmd.h"
-#include "autoware_msgs/BrakeCmd.h"
-#include "autoware_msgs/SteerCmd.h"
-#include "autoware_msgs/ControlCommandStamped.h"
+#include "aslan_msgs/RemoteCmd.h"
+#include "aslan_msgs/VehicleCmd.h"
+#include "aslan_msgs/AccelCmd.h"
+#include "aslan_msgs/BrakeCmd.h"
+#include "aslan_msgs/SteerCmd.h"
+#include "aslan_msgs/ControlCommandStamped.h"
 
 class TwistGate
 {
-  using remote_msgs_t = autoware_msgs::RemoteCmd;
-  using vehicle_cmd_msg_t = autoware_msgs::VehicleCmd;
+  using remote_msgs_t = aslan_msgs::RemoteCmd;
+  using vehicle_cmd_msg_t = aslan_msgs::VehicleCmd;
 
   public:
     TwistGate(const ros::NodeHandle& nh, const ros::NodeHandle& private_nh);
@@ -60,13 +64,11 @@ class TwistGate
     void watchdog_timer();
     void remote_cmd_callback(const remote_msgs_t::ConstPtr& input_msg);
     void auto_cmd_twist_cmd_callback(const geometry_msgs::TwistStamped::ConstPtr& input_msg);
-    void mode_cmd_callback(const tablet_socket_msgs::mode_cmd::ConstPtr& input_msg);
-    void gear_cmd_callback(const tablet_socket_msgs::gear_cmd::ConstPtr& input_msg);
-    void accel_cmd_callback(const autoware_msgs::AccelCmd::ConstPtr& input_msg);
-    void steer_cmd_callback(const autoware_msgs::SteerCmd::ConstPtr& input_msg);
-    void brake_cmd_callback(const autoware_msgs::BrakeCmd::ConstPtr& input_msg);
-    void lamp_cmd_callback(const autoware_msgs::LampCmd::ConstPtr& input_msg);
-    void ctrl_cmd_callback(const autoware_msgs::ControlCommandStamped::ConstPtr& input_msg);
+    void accel_cmd_callback(const aslan_msgs::AccelCmd::ConstPtr& input_msg);
+    void steer_cmd_callback(const aslan_msgs::SteerCmd::ConstPtr& input_msg);
+    void brake_cmd_callback(const aslan_msgs::BrakeCmd::ConstPtr& input_msg);
+    void lamp_cmd_callback(const aslan_msgs::LampCmd::ConstPtr& input_msg);
+    void ctrl_cmd_callback(const aslan_msgs::ControlCommandStamped::ConstPtr& input_msg);
 
     void reset_vehicle_cmd_msg();
 
@@ -107,8 +109,6 @@ TwistGate::TwistGate(const ros::NodeHandle& nh, const ros::NodeHandle& private_n
   remote_cmd_sub_ = nh_.subscribe("/remote_cmd", 1, &TwistGate::remote_cmd_callback, this);
 
   auto_cmd_sub_stdmap_["twist_cmd"] = nh_.subscribe("/twist_cmd", 1, &TwistGate::auto_cmd_twist_cmd_callback, this);
-  auto_cmd_sub_stdmap_["mode_cmd"] = nh_.subscribe("/mode_cmd", 1, &TwistGate::mode_cmd_callback, this);
-  auto_cmd_sub_stdmap_["gear_cmd"] = nh_.subscribe("/gear_cmd", 1, &TwistGate::gear_cmd_callback, this);
   auto_cmd_sub_stdmap_["accel_cmd"] = nh_.subscribe("/accel_cmd", 1, &TwistGate::accel_cmd_callback, this);
   auto_cmd_sub_stdmap_["steer_cmd"] = nh_.subscribe("/steer_cmd", 1, &TwistGate::steer_cmd_callback, this);
   auto_cmd_sub_stdmap_["brake_cmd"] = nh_.subscribe("/brake_cmd", 1, &TwistGate::brake_cmd_callback, this);
@@ -236,32 +236,7 @@ void TwistGate::auto_cmd_twist_cmd_callback(const geometry_msgs::TwistStamped::C
   }
 }
 
-void TwistGate::mode_cmd_callback(const tablet_socket_msgs::mode_cmd::ConstPtr& input_msg)
-{
-  if(command_mode_ == CommandMode::AUTO)
-  {
-    //TODO:check this if statement
-    if(input_msg->mode == -1 || input_msg->mode == 0){
-      reset_vehicle_cmd_msg();
-    }
-    twist_gate_msg_.header.frame_id = input_msg->header.frame_id;
-    twist_gate_msg_.header.stamp = input_msg->header.stamp;
-    twist_gate_msg_.header.seq++;
-    twist_gate_msg_.mode = input_msg->mode;
-    vehicle_cmd_pub_.publish(twist_gate_msg_);
-  }
-}
-
-void TwistGate::gear_cmd_callback(const tablet_socket_msgs::gear_cmd::ConstPtr& input_msg)
-{
-  if(command_mode_ == CommandMode::AUTO)
-  {
-    twist_gate_msg_.gear = input_msg->gear;
-    vehicle_cmd_pub_.publish(twist_gate_msg_);
-  }
-}
-
-void TwistGate::accel_cmd_callback(const autoware_msgs::AccelCmd::ConstPtr& input_msg)
+void TwistGate::accel_cmd_callback(const aslan_msgs::AccelCmd::ConstPtr& input_msg)
 {
   if(command_mode_ == CommandMode::AUTO)
   {
@@ -273,7 +248,7 @@ void TwistGate::accel_cmd_callback(const autoware_msgs::AccelCmd::ConstPtr& inpu
   }
 }
 
-void TwistGate::steer_cmd_callback(const autoware_msgs::SteerCmd::ConstPtr& input_msg)
+void TwistGate::steer_cmd_callback(const aslan_msgs::SteerCmd::ConstPtr& input_msg)
 {
   if(command_mode_ == CommandMode::AUTO)
   {
@@ -285,7 +260,7 @@ void TwistGate::steer_cmd_callback(const autoware_msgs::SteerCmd::ConstPtr& inpu
   }
 }
 
-void TwistGate::brake_cmd_callback(const autoware_msgs::BrakeCmd::ConstPtr& input_msg)
+void TwistGate::brake_cmd_callback(const aslan_msgs::BrakeCmd::ConstPtr& input_msg)
 {
   if(command_mode_ == CommandMode::AUTO)
   {
@@ -297,7 +272,7 @@ void TwistGate::brake_cmd_callback(const autoware_msgs::BrakeCmd::ConstPtr& inpu
   }
 }
 
-void TwistGate::lamp_cmd_callback(const autoware_msgs::LampCmd::ConstPtr& input_msg)
+void TwistGate::lamp_cmd_callback(const aslan_msgs::LampCmd::ConstPtr& input_msg)
 {
   if(command_mode_ == CommandMode::AUTO)
   {
@@ -310,7 +285,7 @@ void TwistGate::lamp_cmd_callback(const autoware_msgs::LampCmd::ConstPtr& input_
   }
 }
 
-void TwistGate::ctrl_cmd_callback(const autoware_msgs::ControlCommandStamped::ConstPtr& input_msg)
+void TwistGate::ctrl_cmd_callback(const aslan_msgs::ControlCommandStamped::ConstPtr& input_msg)
 {
   if(command_mode_ == CommandMode::AUTO)
   {

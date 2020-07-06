@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,9 +36,9 @@
 #include <tuple>
 
 // User defined includes
-#include "autoware_config_msgs/ConfigLaneSelect.h"
-#include "autoware_msgs/LaneArray.h"
-#include "autoware_msgs/State.h"
+#include "aslan_msgs/ConfigLaneSelect.h"
+#include "aslan_msgs/LaneArray.h"
+#include "aslan_msgs/State.h"
 #include "hermite_curve.h"
 #include "waypoint_follower/libwaypoint_follower.h"
 
@@ -77,13 +83,12 @@ private:
   int32_t current_lane_idx_;  // the index of the lane we are driving
   int32_t right_lane_idx_;
   int32_t left_lane_idx_;
-  std::vector<std::tuple<autoware_msgs::Lane, int32_t, ChangeFlag>> tuple_vec_;  // lane, closest_waypoint,
+  std::vector<std::tuple<aslan_msgs::Lane, int32_t, ChangeFlag>> tuple_vec_;  // lane, closest_waypoint,
                                                                                  // change_flag
-  std::tuple<autoware_msgs::Lane, int32_t, ChangeFlag> lane_for_change_;
+  std::tuple<aslan_msgs::Lane, int32_t, ChangeFlag> lane_for_change_;
   bool is_lane_array_subscribed_, is_current_pose_subscribed_, is_current_velocity_subscribed_,
       is_current_state_subscribed_, is_config_subscribed_;
 
-  // parameter from runtime manager
   double distance_threshold_, lane_change_interval_, lane_change_target_ratio_, lane_change_target_minimum_,
       vlength_hermite_curve_;
 
@@ -93,12 +98,12 @@ private:
   std::string current_state_;
 
   // callbacks
-  void callbackFromLaneArray(const autoware_msgs::LaneArrayConstPtr &msg);
+  void callbackFromLaneArray(const aslan_msgs::LaneArrayConstPtr &msg);
   void callbackFromPoseStamped(const geometry_msgs::PoseStampedConstPtr &msg);
   void callbackFromTwistStamped(const geometry_msgs::TwistStampedConstPtr &msg);
   void callbackFromState(const std_msgs::StringConstPtr &msg);
-  void callbackFromStates(const autoware_msgs::StateConstPtr &msg);
-  void callbackFromConfig(const autoware_config_msgs::ConfigLaneSelectConstPtr &msg);
+  void callbackFromStates(const aslan_msgs::StateConstPtr &msg);
+  void callbackFromConfig(const aslan_msgs::ConfigLaneSelectConstPtr &msg);
 
   // initializer
   void initForROS();
@@ -117,8 +122,8 @@ private:
   void resetSubscriptionFlag();
   bool isAllTopicsSubscribed();
   void processing();
-  void publishLane(const autoware_msgs::Lane &lane);
-  void publishLaneID(const autoware_msgs::Lane &lane);
+  void publishLane(const aslan_msgs::Lane &lane);
+  void publishLaneID(const aslan_msgs::Lane &lane);
   void publishClosestWaypoint(const int32_t clst_wp);
   void publishChangeFlag(const ChangeFlag flag);
   bool getClosestWaypointNumberForEachLanes();
@@ -128,10 +133,10 @@ private:
   void changeLane();
   void updateChangeFlag();
   void createLaneForChange();
-  int32_t getClosestLaneChangeWaypointNumber(const std::vector<autoware_msgs::Waypoint> &wps, int32_t cl_wp);
+  int32_t getClosestLaneChangeWaypointNumber(const std::vector<aslan_msgs::Waypoint> &wps, int32_t cl_wp);
 };
 
-int32_t getClosestWaypointNumber(const autoware_msgs::Lane &current_lane, const geometry_msgs::Pose &current_pose,
+int32_t getClosestWaypointNumber(const aslan_msgs::Lane &current_lane, const geometry_msgs::Pose &current_pose,
                                  const geometry_msgs::Twist &current_velocity, const int32_t previous_number,
                                  const double distance_threshold);
 

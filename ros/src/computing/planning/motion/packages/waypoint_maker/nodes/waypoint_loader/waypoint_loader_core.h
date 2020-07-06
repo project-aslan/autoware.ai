@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ *  Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -28,7 +34,7 @@
 #include <tf/transform_datatypes.h>
 #include <unordered_map>
 
-#include "autoware_msgs/LaneArray.h"
+#include "aslan_msgs/LaneArray.h"
 #include "velocity_replanner.h"
 
 namespace waypoint_maker
@@ -77,28 +83,28 @@ private:
   bool replanning_mode_;
   VelocityReplanner replanner_;
   std::vector<std::string> multi_file_path_;
-  autoware_msgs::LaneArray output_lane_array_;
+  aslan_msgs::LaneArray output_lane_array_;
 
   // initializer
   void initPubSub();
-  void initParameter(const autoware_config_msgs::ConfigWaypointLoader::ConstPtr& conf);
+  void initParameter(const aslan_msgs::ConfigWaypointLoader::ConstPtr& conf);
 
   // functions
-  void configCallback(const autoware_config_msgs::ConfigWaypointLoader::ConstPtr& conf);
+  void configCallback(const aslan_msgs::ConfigWaypointLoader::ConstPtr& conf);
   void outputCommandCallback(const std_msgs::Bool::ConstPtr& output_cmd);
-  void createLaneWaypoint(const std::string& file_path, autoware_msgs::Lane* lane);
-  void createLaneArray(const std::vector<std::string>& paths, autoware_msgs::LaneArray* lane_array);
-  void saveLaneArray(const std::vector<std::string>& paths, const autoware_msgs::LaneArray& lane_array);
+  void createLaneWaypoint(const std::string& file_path, aslan_msgs::Lane* lane);
+  void createLaneArray(const std::vector<std::string>& paths, aslan_msgs::LaneArray* lane_array);
+  void saveLaneArray(const std::vector<std::string>& paths, const aslan_msgs::LaneArray& lane_array);
 
   FileFormat checkFileFormat(const char* filename);
   bool verifyFileConsistency(const char* filename);
-  void loadWaypointsForVer1(const char* filename, std::vector<autoware_msgs::Waypoint>* wps);
-  void parseWaypointForVer1(const std::string& line, autoware_msgs::Waypoint* wp);
-  void loadWaypointsForVer2(const char* filename, std::vector<autoware_msgs::Waypoint>* wps);
-  void parseWaypointForVer2(const std::string& line, autoware_msgs::Waypoint* wp);
-  void loadWaypointsForVer3(const char* filename, std::vector<autoware_msgs::Waypoint>* wps);
+  void loadWaypointsForVer1(const char* filename, std::vector<aslan_msgs::Waypoint>* wps);
+  void parseWaypointForVer1(const std::string& line, aslan_msgs::Waypoint* wp);
+  void loadWaypointsForVer2(const char* filename, std::vector<aslan_msgs::Waypoint>* wps);
+  void parseWaypointForVer2(const std::string& line, aslan_msgs::Waypoint* wp);
+  void loadWaypointsForVer3(const char* filename, std::vector<aslan_msgs::Waypoint>* wps);
   void parseWaypointForVer3(const std::string& line, const std::vector<std::string>& contents,
-                            autoware_msgs::Waypoint* wp);
+                            aslan_msgs::Waypoint* wp);
 };
 
 const std::string addFileSuffix(std::string file_path, std::string suffix);

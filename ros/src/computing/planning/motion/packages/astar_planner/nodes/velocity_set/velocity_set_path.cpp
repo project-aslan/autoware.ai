@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +27,12 @@ VelocitySetPath::VelocitySetPath()
     current_vel_(0)
 {
   ros::NodeHandle private_nh_("~");
-  private_nh_.param<double>("velocity_offset", velocity_offset_, 1.2);
-  private_nh_.param<double>("decelerate_vel_min", decelerate_vel_min_, 1.3);
+  
+  //Offset to calculated velocity target
+  private_nh_.param<double>("velocity_offset", velocity_offset_, 0.5);
+  
+  //Minimum velocity we slow to if decelerate is triggered
+  private_nh_.param<double>("decelerate_vel_min", decelerate_vel_min_, 2.0);
 }
 
 VelocitySetPath::~VelocitySetPath()
@@ -50,9 +60,10 @@ void VelocitySetPath::setTemporalWaypoints(int temporal_waypoints_size, int clos
   temporal_waypoints_.increment = new_waypoints_.increment;
 
   // push current pose
-  autoware_msgs::Waypoint current_point;
+  aslan_msgs::Waypoint current_point;
   current_point.pose = control_pose;
   current_point.twist = new_waypoints_.waypoints[closest_waypoint].twist;
+  //std::cout << "Set temporal waypoints twist: " << current_point.twist << std::endl;
   current_point.dtlane = new_waypoints_.waypoints[closest_waypoint].dtlane;
   temporal_waypoints_.waypoints.push_back(current_point);
 
@@ -67,6 +78,7 @@ void VelocitySetPath::setTemporalWaypoints(int temporal_waypoints_size, int clos
   return;
 }
 
+//If deaccelleration is triggered, reduce speed by deceleration to velocity minimum
 void VelocitySetPath::changeWaypointsForDeceleration(double deceleration, int closest_waypoint, int obstacle_waypoint)
 {
   double square_vel_min = decelerate_vel_min_ * decelerate_vel_min_;
@@ -94,7 +106,8 @@ void VelocitySetPath::changeWaypointsForDeceleration(double deceleration, int cl
 
 }
 
-void VelocitySetPath::avoidSuddenAcceleration(double deceleration, int closest_waypoint)
+//When accellerating, reduce speed to target value gradually by accelleration
+void VelocitySetPath::avoidSuddenAcceleration(double acceleration, int closest_waypoint)
 {
   double square_current_vel = current_vel_ * current_vel_;
 
@@ -105,7 +118,7 @@ void VelocitySetPath::avoidSuddenAcceleration(double deceleration, int closest_w
 
     // accelerate with constant acceleration
     // v = root((v0)^2 + 2ax)
-    double changed_vel = std::sqrt(square_current_vel + 2 * deceleration * calcInterval(closest_waypoint, closest_waypoint + i)) + velocity_offset_;
+    double changed_vel = std::sqrt(square_current_vel + 2 * acceleration * calcInterval(closest_waypoint, closest_waypoint + i)) + velocity_offset_;
 
     // Don't exceed original velocity
     if (changed_vel > new_waypoints_.waypoints[closest_waypoint + i].twist.twist.linear.x)
@@ -117,16 +130,15 @@ void VelocitySetPath::avoidSuddenAcceleration(double deceleration, int closest_w
   return;
 }
 
+//When reducing speed, reduce gradually 
 void VelocitySetPath::avoidSuddenDeceleration(double velocity_change_limit, double deceleration, int closest_waypoint)
 {
   if (closest_waypoint < 0)
     return;
 
-  // not avoid braking
+  //Below the velocity change limit, we do not use this functionality 
   if (current_vel_ - new_waypoints_.waypoints[closest_waypoint].twist.twist.linear.x < velocity_change_limit)
     return;
-
-  //std::cout << "avoid sudden braking!" << std::endl;
 
   double square_vel = (current_vel_ - velocity_change_limit) * (current_vel_ - velocity_change_limit);
   for (int i = 0;; i++)
@@ -214,7 +226,7 @@ void VelocitySetPath::resetFlag()
 }
 
 
-void VelocitySetPath::waypointsCallback(const autoware_msgs::LaneConstPtr& msg)
+void VelocitySetPath::waypointsCallback(const aslan_msgs::LaneConstPtr& msg)
 {
   prev_waypoints_ = *msg;
   // temporary, edit waypoints velocity later
@@ -225,5 +237,7 @@ void VelocitySetPath::waypointsCallback(const autoware_msgs::LaneConstPtr& msg)
 
 void VelocitySetPath::currentVelocityCallback(const geometry_msgs::TwistStampedConstPtr& msg)
 {
+
   current_vel_ = msg->twist.linear.x;
+  std::cout << "Current vel from vehicle: " << current_vel_ << std::endl;
 }

@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +22,8 @@
 
 #include "pure_pursuit_core.h"
 
+using namespace std;
+
 namespace waypoint_follower
 {
 // Constructor
@@ -31,7 +39,7 @@ PurePursuitNode::PurePursuitNode()
   , command_linear_velocity_(0)
   , param_flag_(-1)
   , const_lookahead_distance_(4.0)
-  , const_velocity_(5.0)
+  , const_velocity_(11)
   , lookahead_distance_ratio_(2.0)
   , minimum_lookahead_distance_(6.0)
 {
@@ -52,17 +60,17 @@ void PurePursuitNode::initForROS()
   private_nh_.param("is_linear_interpolation", is_linear_interpolation_, bool(true));
   // ROS_INFO_STREAM("is_linear_interpolation : " << is_linear_interpolation_);
   private_nh_.param("publishes_for_steering_robot", publishes_for_steering_robot_, bool(false));
-  nh_.param("vehicle_info/wheel_base", wheel_base_, double(2.7));
+  nh_.param("vehicle_info/wheel_base", wheel_base_, double(1.68));
 
   // setup subscriber
-  sub1_ = nh_.subscribe("final_waypoints", 10, &PurePursuitNode::callbackFromWayPoints, this);
+  sub1_ = nh_.subscribe("final_waypoints", 100, &PurePursuitNode::callbackFromWayPoints, this);
   sub2_ = nh_.subscribe("current_pose", 10, &PurePursuitNode::callbackFromCurrentPose, this);
   sub3_ = nh_.subscribe("config/waypoint_follower", 10, &PurePursuitNode::callbackFromConfig, this);
   sub4_ = nh_.subscribe("current_velocity", 10, &PurePursuitNode::callbackFromCurrentVelocity, this);
 
   // setup publisher
   pub1_ = nh_.advertise<geometry_msgs::TwistStamped>("twist_raw", 10);
-  pub2_ = nh_.advertise<autoware_msgs::ControlCommandStamped>("ctrl_cmd", 10);
+  pub2_ = nh_.advertise<aslan_msgs::ControlCommandStamped>("ctrl_cmd", 10);
   pub11_ = nh_.advertise<visualization_msgs::Marker>("next_waypoint_mark", 0);
   pub12_ = nh_.advertise<visualization_msgs::Marker>("next_target_mark", 0);
   pub13_ = nh_.advertise<visualization_msgs::Marker>("search_circle_mark", 0);
@@ -80,7 +88,7 @@ void PurePursuitNode::run()
   while (ros::ok())
   {
     ros::spinOnce();
-    if (!is_pose_set_ || !is_waypoint_set_ || !is_velocity_set_ || !is_config_set_)
+    if (!is_pose_set_ || !is_waypoint_set_ || !is_velocity_set_)
     {
       ROS_WARN("Necessary topics are not subscribed yet ... ");
       loop_rate.sleep();
@@ -129,7 +137,7 @@ void PurePursuitNode::publishControlCommandStamped(const bool &can_get_curvature
   if (!publishes_for_steering_robot_)
     return;
 
-  autoware_msgs::ControlCommandStamped ccs;
+  aslan_msgs::ControlCommandStamped ccs;
   ccs.header.stamp = ros::Time::now();
   ccs.cmd.linear_velocity = can_get_curvature ? computeCommandVelocity() : 0;
   ccs.cmd.linear_acceleration = can_get_curvature ? computeCommandAccel() : 0;
@@ -152,10 +160,13 @@ double PurePursuitNode::computeLookaheadDistance() const
 
 double PurePursuitNode::computeCommandVelocity() const
 {
-  if (param_flag_ == enumToInteger(Mode::dialog))
-    return kmph2mps(const_velocity_);
-
-  return command_linear_velocity_;
+    if (param_flag_ == enumToInteger(Mode::dialog))
+    {
+        if (command_linear_velocity_ == 0.0)
+            return command_linear_velocity_;
+        return kmph2mps(const_velocity_);
+    }
+    return command_linear_velocity_;
 }
 
 double PurePursuitNode::computeCommandAccel() const
@@ -169,7 +180,7 @@ double PurePursuitNode::computeCommandAccel() const
   const double v0 = current_linear_velocity_;
   const double v = computeCommandVelocity();
   const double a = (v * v - v0 * v0) / (2 * x);
-  return a;
+    return a;
 }
 
 double PurePursuitNode::computeAngularGravity(double velocity, double kappa) const
@@ -178,7 +189,7 @@ double PurePursuitNode::computeAngularGravity(double velocity, double kappa) con
   return (velocity * velocity) / (1.0 / kappa * gravity);
 }
 
-void PurePursuitNode::callbackFromConfig(const autoware_config_msgs::ConfigWaypointFollowerConstPtr &config)
+void PurePursuitNode::callbackFromConfig(const aslan_msgs::ConfigWaypointFollowerConstPtr &config)
 {
   param_flag_ = config->param_flag;
   const_lookahead_distance_ = config->lookahead_distance;
@@ -189,7 +200,7 @@ void PurePursuitNode::callbackFromConfig(const autoware_config_msgs::ConfigWaypo
 }
 
 void PurePursuitNode::publishDeviationCurrentPosition(const geometry_msgs::Point &point,
-                                                      const std::vector<autoware_msgs::Waypoint> &waypoints) const
+                                                      const std::vector<aslan_msgs::Waypoint> &waypoints) const
 {
   // Calculate the deviation of current position from the waypoint approximate line
 
@@ -199,8 +210,8 @@ void PurePursuitNode::publishDeviationCurrentPosition(const geometry_msgs::Point
   }
 
   double a, b, c;
-  double linear_flag_in =
-      getLinearEquation(waypoints.at(2).pose.pose.position, waypoints.at(1).pose.pose.position, &a, &b, &c);
+  double linear_flag_in = getLinearEquation(waypoints.at(2).pose.pose.position, waypoints.at(1).pose.pose.position, &a, &b, &c);
+  ROS_DEBUG("pure_pursuit linear_flag = %f", linear_flag_in);
 
   std_msgs::Float32 msg;
   msg.data = getDistanceBetweenLineAndPoint(point, a, b, c);
@@ -221,12 +232,15 @@ void PurePursuitNode::callbackFromCurrentVelocity(const geometry_msgs::TwistStam
   is_velocity_set_ = true;
 }
 
-void PurePursuitNode::callbackFromWayPoints(const autoware_msgs::LaneConstPtr &msg)
+void PurePursuitNode::callbackFromWayPoints(const aslan_msgs::LaneConstPtr &msg)
 {
-  if (!msg->waypoints.empty())
-    command_linear_velocity_ = msg->waypoints.at(0).twist.twist.linear.x;
-  else
-    command_linear_velocity_ = 0;
+  if (!msg->waypoints.empty()) {
+      command_linear_velocity_ = msg->waypoints.at(0).twist.twist.linear.x;
+      if (command_linear_velocity_ > 9){
+        command_linear_velocity_ = 9;
+      }
+  }else{
+    command_linear_velocity_ = 0;}
 
   pp_.setCurrentWaypoints(msg->waypoints);
   is_waypoint_set_ = true;

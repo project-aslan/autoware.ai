@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ *  Original copyright notice:
  *  Copyright (c) 2018, TierIV, Inc.
 
  *  All rights reserved.
@@ -49,24 +55,24 @@ VelocityReplanner::~VelocityReplanner()
 {
 }
 
-void VelocityReplanner::initParameter(const autoware_config_msgs::ConfigWaypointLoader::ConstPtr& conf)
+void VelocityReplanner::initParameter()
 {
-  velocity_max_ = kmph2mps(conf->velocity_max);
-  velocity_min_ = kmph2mps(conf->velocity_min);
-  accel_limit_ = conf->accel_limit;
-  decel_limit_ = conf->decel_limit;
-  r_th_ = conf->radius_thresh;
-  r_min_ = conf->radius_min;
+  velocity_max_ = kmph2mps(20);
+  velocity_min_ = kmph2mps(4);
+  accel_limit_ = 0.98;
+  decel_limit_ = 0.98;
+  r_th_ = 20;
+  r_min_ = 6;
   lookup_crv_width_ = 5;
-  resample_mode_ = conf->resample_mode;
-  resample_interval_ = conf->resample_interval;
-  velocity_offset_ = conf->velocity_offset;
-  end_point_offset_ = conf->end_point_offset;
+  resample_mode_ = true;
+  resample_interval_ = 1;
+  velocity_offset_ = 4;
+  end_point_offset_ = 5;
   r_inf_ = 10 * r_th_;
   vel_param_ = calcVelParam();
 }
 
-void VelocityReplanner::replanLaneWaypointVel(autoware_msgs::Lane* lane)
+void VelocityReplanner::replanLaneWaypointVel(aslan_msgs::Lane* lane)
 {
   if (vel_param_ == DBL_MAX)
   {
@@ -99,13 +105,13 @@ void VelocityReplanner::replanLaneWaypointVel(autoware_msgs::Lane* lane)
   limitVelocityByRange(lane->waypoints.size() - 1 - end_point_offset_, lane->waypoints.size() - 1, 0, 0.0, lane);
 }
 
-void VelocityReplanner::resampleLaneWaypoint(const double resample_interval, autoware_msgs::Lane* lane)
+void VelocityReplanner::resampleLaneWaypoint(const double resample_interval, aslan_msgs::Lane* lane)
 {
   if (lane->waypoints.empty())
   {
     return;
   }
-  autoware_msgs::Lane original_lane = *lane;
+  aslan_msgs::Lane original_lane = *lane;
   lane->waypoints.clear();
   lane->waypoints.push_back(original_lane.waypoints[0]);
   lane->waypoints.reserve(ceil(1.5 * calcPathLength(original_lane) / resample_interval_));
@@ -134,9 +140,9 @@ void VelocityReplanner::resampleLaneWaypoint(const double resample_interval, aut
 }
 
 void VelocityReplanner::resampleOnStraight(const boost::circular_buffer<geometry_msgs::Point>& curve_point,
-                                           autoware_msgs::Lane* lane)
+                                           aslan_msgs::Lane* lane)
 {
-  autoware_msgs::Waypoint wp = lane->waypoints.back();
+  aslan_msgs::Waypoint wp = lane->waypoints.back();
   const geometry_msgs::Point& pt = wp.pose.pose.position;
   const double yaw = atan2(curve_point[2].y - curve_point[0].y, curve_point[2].x - curve_point[0].x);
   wp.pose.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
@@ -159,9 +165,9 @@ void VelocityReplanner::resampleOnStraight(const boost::circular_buffer<geometry
 }
 
 void VelocityReplanner::resampleOnCurve(const geometry_msgs::Point& target_point,
-                                        const std::vector<double>& curve_param, autoware_msgs::Lane* lane)
+                                        const std::vector<double>& curve_param, aslan_msgs::Lane* lane)
 {
-  autoware_msgs::Waypoint wp = lane->waypoints.back();
+  aslan_msgs::Waypoint wp = lane->waypoints.back();
   const double& cx = curve_param[0];
   const double& cy = curve_param[1];
   const double& radius = curve_param[2];
@@ -198,12 +204,12 @@ void VelocityReplanner::resampleOnCurve(const geometry_msgs::Point& target_point
 // Three points used for curve detection (the target point is the center)
 // [0] = previous point, [1] = target point, [2] = next point
 const boost::circular_buffer<geometry_msgs::Point> VelocityReplanner::getCrvPointsOnResample(
-    const autoware_msgs::Lane& lane, const autoware_msgs::Lane& original_lane, unsigned long original_index) const
+    const aslan_msgs::Lane& lane, const aslan_msgs::Lane& original_lane, unsigned long original_index) const
 {
   unsigned long id = original_index;
   boost::circular_buffer<geometry_msgs::Point> curve_point(3);
   const unsigned int n = (lookup_crv_width_ - 1) / 2;
-  const autoware_msgs::Waypoint cp[3] = {
+  const aslan_msgs::Waypoint cp[3] = {
     (lane.waypoints.size() < n) ? lane.waypoints.front() : lane.waypoints[lane.waypoints.size() - n],
     original_lane.waypoints[id],
     (id < original_lane.waypoints.size() - n) ? original_lane.waypoints[id + n] : original_lane.waypoints.back()
@@ -215,7 +221,7 @@ const boost::circular_buffer<geometry_msgs::Point> VelocityReplanner::getCrvPoin
   return curve_point;
 }
 
-const boost::circular_buffer<geometry_msgs::Point> VelocityReplanner::getCrvPoints(const autoware_msgs::Lane& lane,
+const boost::circular_buffer<geometry_msgs::Point> VelocityReplanner::getCrvPoints(const aslan_msgs::Lane& lane,
                                                                                    unsigned long index) const
 {
   boost::circular_buffer<geometry_msgs::Point> curve_point(3);
@@ -230,7 +236,7 @@ const boost::circular_buffer<geometry_msgs::Point> VelocityReplanner::getCrvPoin
   return curve_point;
 }
 
-void VelocityReplanner::createRadiusList(const autoware_msgs::Lane& lane, std::vector<double>* curve_radius)
+void VelocityReplanner::createRadiusList(const aslan_msgs::Lane& lane, std::vector<double>* curve_radius)
 {
   if (lane.waypoints.empty())
   {
@@ -302,7 +308,7 @@ void VelocityReplanner::createCurveList(
 }
 
 void VelocityReplanner::limitVelocityByRange(unsigned long start_idx, unsigned long end_idx, unsigned int offset,
-                                             double vmin, autoware_msgs::Lane* lane)
+                                             double vmin, aslan_msgs::Lane* lane)
 {
   if (offset > 0)
   {
@@ -321,7 +327,7 @@ void VelocityReplanner::limitVelocityByRange(unsigned long start_idx, unsigned l
   limitAccelDecel(end_idx, lane);
 }
 
-void VelocityReplanner::limitAccelDecel(const unsigned long idx, autoware_msgs::Lane* lane)
+void VelocityReplanner::limitAccelDecel(const unsigned long idx, aslan_msgs::Lane* lane)
 {
   const double acc[2] = { accel_limit_, decel_limit_ };
   const unsigned long end_idx[2] = { lane->waypoints.size() - idx, idx + 1 };
@@ -365,7 +371,7 @@ const std::vector<double> VelocityReplanner::calcCurveParam(boost::circular_buff
   return std::vector<double>();  // error
 }
 
-const double VelocityReplanner::calcPathLength(const autoware_msgs::Lane& lane) const
+const double VelocityReplanner::calcPathLength(const aslan_msgs::Lane& lane) const
 {
   double distance = 0.0;
   for (unsigned long i = 1; i < lane.waypoints.size(); i++)
