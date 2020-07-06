@@ -1,49 +1,47 @@
 <?xml version="1.0"?>
-<package>
-    <name>lidar_localizer</name>
-    <version>1.10.0</version>
-    <description>The lidar_localizer package</description>
-    <maintainer email="yuki@ertl.jp">kitsukawa</maintainer>
-    <license>Apache 2</license>
-    <buildtool_depend>catkin</buildtool_depend>
-    <buildtool_depend>autoware_build_flags</buildtool_depend>
+<package format="2">
+  <name>lidar_localizer</name>
+  <version>1.0.0</version>
+  <description>The lidar_localizer package</description>
 
-    <build_depend>roscpp</build_depend>
-    <build_depend>std_msgs</build_depend>
-    <build_depend>nav_msgs</build_depend>
-    <build_depend>tf</build_depend>
-    <build_depend>pcl_ros</build_depend>
-    <build_depend>sensor_msgs</build_depend>
-    <build_depend>autoware_msgs</build_depend>
-    <build_depend>autoware_config_msgs</build_depend>
-    <build_depend>pcl_conversions</build_depend>
-    <build_depend>message_filters</build_depend>
-    <build_depend>velodyne_pointcloud</build_depend>
-    <build_depend>pcl_omp_registration</build_depend>
-    <build_depend>ndt_gpu</build_depend>
-    <build_depend>ndt_cpu</build_depend>
-    <build_depend>ndt_tku</build_depend>
-    <build_depend>libpcl-all-dev</build_depend>
-    <build_depend>eigen</build_depend>
+  <maintainer email="efimia@streetdrone.com">Efimia Panagiotaki</maintainer>
 
-    <run_depend>roscpp</run_depend>
-    <run_depend>std_msgs</run_depend>
-    <run_depend>nav_msgs</run_depend>
-    <run_depend>tf</run_depend>
-    <run_depend>pcl_ros</run_depend>
-    <run_depend>sensor_msgs</run_depend>
-    <run_depend>autoware_msgs</run_depend>
-    <run_depend>autoware_config_msgs</run_depend>
-    <run_depend>pcl_conversions</run_depend>
-    <run_depend>message_filters</run_depend>
-    <run_depend>velodyne_pointcloud</run_depend>
-    <run_depend>pcl_omp_registration</run_depend>
-    <run_depend>ndt_gpu</run_depend>
-    <run_depend>ndt_cpu</run_depend>
-    <run_depend>ndt_tku</run_depend>
-    <run_depend>libpcl-all</run_depend>
-    <run_depend>eigen</run_depend>
+  <license>Apache 2</license>
 
-    <export>
-    </export>
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>aslan_build_flags</buildtool_depend>
+
+  <build_depend>roscpp</build_depend>
+  <build_depend>std_msgs</build_depend>
+  <build_depend>nav_msgs</build_depend>
+  <build_depend>tf</build_depend>
+  <build_depend>pcl_ros</build_depend>
+  <build_depend>sensor_msgs</build_depend>
+  <build_depend>aslan_msgs</build_depend>
+  <build_depend>pcl_conversions</build_depend>
+  <build_depend>message_filters</build_depend>
+  <build_depend>velodyne_pointcloud</build_depend>
+  <build_depend>ndt_cpu</build_depend>
+  <build_depend>libpcl-all-dev</build_depend>
+  <build_depend>eigen</build_depend>
+  <build_depend>pcl_omp_registration</build_depend>
+  <build_depend>jsk_rviz_plugins</build_depend>
+
+  <exec_depend>roscpp</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>nav_msgs</exec_depend>
+  <exec_depend>tf</exec_depend>
+  <exec_depend>pcl_ros</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+  <exec_depend>aslan_msgs</exec_depend>
+  <exec_depend>pcl_conversions</exec_depend>
+  <exec_depend>message_filters</exec_depend>
+  <exec_depend>velodyne_pointcloud</exec_depend>
+  <exec_depend>ndt_cpu</exec_depend>
+  <exec_depend>libpcl-all</exec_depend>
+  <exec_depend>eigen</exec_depend>
+  <exec_depend>pcl_omp_registration</exec_depend>
+  <exec_depend>jsk_rviz_plugins</exec_depend>
+
+  <export>  </export>
 </package>

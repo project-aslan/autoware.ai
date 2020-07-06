@@ -1,5 +1,11 @@
 /*
- * Copyright 2018-2019 Autoware Foundation. All rights reserved.
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
+ * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -51,7 +57,7 @@
 
 #include <jsk_rviz_plugins/OverlayText.h>
 
-#include <autoware_msgs/NDTStat.h>
+#include <aslan_msgs/NDTStat.h>
 
 #define __APP_NAME__ "ROSNDTMatchingMonitor"
 
@@ -109,7 +115,7 @@ class ROSNDTMatchingMonitor
 	 * Callback for NDT statistics
 	 * @param input message published by ndt
 	 */
-	void ndt_stat_callback(const autoware_msgs::NDTStat::ConstPtr& input);
+	void ndt_stat_callback(const aslan_msgs::NDTStat::ConstPtr& input);
 
 	/*!
 	 * Callback for transformation result from NDT

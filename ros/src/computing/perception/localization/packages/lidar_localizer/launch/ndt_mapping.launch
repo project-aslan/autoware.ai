@@ -8,8 +8,8 @@
   <arg name="imu_topic" default="/imu_raw" />
   <arg name="incremental_voxel_update" default="false" />
 
+
   <!-- rosrun lidar_localizer ndt_mapping  -->
-  <node pkg="lidar_localizer" type="queue_counter" name="queue_counter" output="screen"/>
   <node pkg="lidar_localizer" type="ndt_mapping" name="ndt_mapping" output="screen">
     <param name="method_type" value="$(arg method_type)" />
     <param name="use_imu" value="$(arg use_imu)" />

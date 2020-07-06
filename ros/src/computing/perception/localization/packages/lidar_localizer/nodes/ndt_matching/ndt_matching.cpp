@@ -1,4 +1,10 @@
 /*
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
  * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,6 +42,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float32.h>
+#include <std_msgs/Float64.h>
+
 #include <std_msgs/String.h>
 #include <velodyne_pointcloud/point_types.h>
 #include <velodyne_pointcloud/rawdata.h>
@@ -55,9 +63,7 @@
 
 #include <ndt_cpu/NormalDistributionsTransform.h>
 #include <pcl/registration/ndt.h>
-#ifdef CUDA_FOUND
-#include <ndt_gpu/NormalDistributionsTransform.h>
-#endif
+
 #ifdef USE_PCL_OPENMP
 #include <pcl_omp_registration/ndt.h>
 #endif
@@ -65,9 +71,9 @@
 #include <pcl_ros/point_cloud.h>
 #include <pcl_ros/transforms.h>
 
-#include <autoware_config_msgs/ConfigNDT.h>
+#include <aslan_msgs/ConfigNDT.h>
 
-#include <autoware_msgs/NDTStat.h>
+#include <aslan_msgs/NDTStat.h>
 
 #define PREDICT_POSE_THRESHOLD 0.5
 
@@ -113,10 +119,7 @@ static int init_pos_set = 0;
 
 static pcl::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> ndt;
 static cpu::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> anh_ndt;
-#ifdef CUDA_FOUND
-static std::shared_ptr<gpu::GNormalDistributionsTransform> anh_gpu_ndt_ptr =
-    std::make_shared<gpu::GNormalDistributionsTransform>();
-#endif
+
 #ifdef USE_PCL_OPENMP
 static pcl_omp::NormalDistributionsTransform<pcl::PointXYZ, pcl::PointXYZ> omp_ndt;
 #endif
@@ -141,6 +144,8 @@ static geometry_msgs::PoseStamped predict_pose_imu_odom_msg;
 
 static ros::Publisher ndt_pose_pub;
 static geometry_msgs::PoseStamped ndt_pose_msg;
+
+static ros::Publisher rmse_pub;
 
 // current_pose is published by vel_pose_mux
 /*
@@ -197,9 +202,10 @@ static std_msgs::Float32 time_ndt_matching;
 static int _queue_size = 1000;
 
 static ros::Publisher ndt_stat_pub;
-static autoware_msgs::NDTStat ndt_stat_msg;
+static aslan_msgs::NDTStat ndt_stat_msg;
 
 static double predict_pose_error = 0.0;
+static std_msgs::Float64 pred_error;
 
 static double _tf_x, _tf_y, _tf_z, _tf_roll, _tf_pitch, _tf_yaw;
 static Eigen::Matrix4f tf_btol;
@@ -232,164 +238,148 @@ static unsigned int points_map_num = 0;
 
 pthread_mutex_t mutex;
 
-static void param_callback(const autoware_config_msgs::ConfigNDT::ConstPtr& input)
+static void param_callback(const aslan_msgs::ConfigNDT::ConstPtr& input)
 {
-  if (_use_gnss != input->init_pos_gnss)
-  {
-    init_pos_set = 0;
-  }
-  else if (_use_gnss == 0 &&
-           (initial_pose.x != input->x || initial_pose.y != input->y || initial_pose.z != input->z ||
-            initial_pose.roll != input->roll || initial_pose.pitch != input->pitch || initial_pose.yaw != input->yaw))
-  {
-    init_pos_set = 0;
-  }
-
-  _use_gnss = input->init_pos_gnss;
-
-  // Setting parameters
-  if (input->resolution != ndt_res)
-  {
-    ndt_res = input->resolution;
-
-    if (_method_type == MethodType::PCL_GENERIC)
-      ndt.setResolution(ndt_res);
-    else if (_method_type == MethodType::PCL_ANH)
-      anh_ndt.setResolution(ndt_res);
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-      anh_gpu_ndt_ptr->setResolution(ndt_res);
-#endif
-#ifdef USE_PCL_OPENMP
-    else if (_method_type == MethodType::PCL_OPENMP)
-      omp_ndt.setResolution(ndt_res);
-#endif
-  }
-
-  if (input->step_size != step_size)
-  {
-    step_size = input->step_size;
-
-    if (_method_type == MethodType::PCL_GENERIC)
-      ndt.setStepSize(step_size);
-    else if (_method_type == MethodType::PCL_ANH)
-      anh_ndt.setStepSize(step_size);
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-      anh_gpu_ndt_ptr->setStepSize(step_size);
-#endif
-#ifdef USE_PCL_OPENMP
-    else if (_method_type == MethodType::PCL_OPENMP)
-      omp_ndt.setStepSize(ndt_res);
-#endif
-  }
-
-  if (input->trans_epsilon != trans_eps)
-  {
-    trans_eps = input->trans_epsilon;
-
-    if (_method_type == MethodType::PCL_GENERIC)
-      ndt.setTransformationEpsilon(trans_eps);
-    else if (_method_type == MethodType::PCL_ANH)
-      anh_ndt.setTransformationEpsilon(trans_eps);
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-      anh_gpu_ndt_ptr->setTransformationEpsilon(trans_eps);
-#endif
-#ifdef USE_PCL_OPENMP
-    else if (_method_type == MethodType::PCL_OPENMP)
-      omp_ndt.setTransformationEpsilon(ndt_res);
-#endif
-  }
-
-  if (input->max_iterations != max_iter)
-  {
-    max_iter = input->max_iterations;
-
-    if (_method_type == MethodType::PCL_GENERIC)
-      ndt.setMaximumIterations(max_iter);
-    else if (_method_type == MethodType::PCL_ANH)
-      anh_ndt.setMaximumIterations(max_iter);
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-      anh_gpu_ndt_ptr->setMaximumIterations(max_iter);
-#endif
-#ifdef USE_PCL_OPENMP
-    else if (_method_type == MethodType::PCL_OPENMP)
-      omp_ndt.setMaximumIterations(ndt_res);
-#endif
-  }
-
-  if (_use_gnss == 0 && init_pos_set == 0)
-  {
-    initial_pose.x = input->x;
-    initial_pose.y = input->y;
-    initial_pose.z = input->z;
-    initial_pose.roll = input->roll;
-    initial_pose.pitch = input->pitch;
-    initial_pose.yaw = input->yaw;
-
-    if (_use_local_transform == true)
+    if (_use_gnss != input->init_pos_gnss)
     {
-      tf::Vector3 v(input->x, input->y, input->z);
-      tf::Quaternion q;
-      q.setRPY(input->roll, input->pitch, input->yaw);
-      tf::Transform transform(q, v);
-      initial_pose.x = (local_transform.inverse() * transform).getOrigin().getX();
-      initial_pose.y = (local_transform.inverse() * transform).getOrigin().getY();
-      initial_pose.z = (local_transform.inverse() * transform).getOrigin().getZ();
-
-      tf::Matrix3x3 m(q);
-      m.getRPY(initial_pose.roll, initial_pose.pitch, initial_pose.yaw);
-
-      std::cout << "initial_pose.x: " << initial_pose.x << std::endl;
-      std::cout << "initial_pose.y: " << initial_pose.y << std::endl;
-      std::cout << "initial_pose.z: " << initial_pose.z << std::endl;
-      std::cout << "initial_pose.roll: " << initial_pose.roll << std::endl;
-      std::cout << "initial_pose.pitch: " << initial_pose.pitch << std::endl;
-      std::cout << "initial_pose.yaw: " << initial_pose.yaw << std::endl;
+        init_pos_set = 0;
+    }
+    else if (_use_gnss == 0 &&
+            (initial_pose.x != input->x || initial_pose.y != input->y || initial_pose.z != input->z ||
+             initial_pose.roll != input->roll || initial_pose.pitch != input->pitch || initial_pose.yaw != input->yaw))
+    {
+        init_pos_set = 0;
     }
 
-    // Setting position and posture for the first time.
-    localizer_pose.x = initial_pose.x;
-    localizer_pose.y = initial_pose.y;
-    localizer_pose.z = initial_pose.z;
-    localizer_pose.roll = initial_pose.roll;
-    localizer_pose.pitch = initial_pose.pitch;
-    localizer_pose.yaw = initial_pose.yaw;
+    _use_gnss = input->init_pos_gnss;
 
-    previous_pose.x = initial_pose.x;
-    previous_pose.y = initial_pose.y;
-    previous_pose.z = initial_pose.z;
-    previous_pose.roll = initial_pose.roll;
-    previous_pose.pitch = initial_pose.pitch;
-    previous_pose.yaw = initial_pose.yaw;
+    // Setting parameters
+    if (input->resolution != ndt_res)
+    {
+        ndt_res = input->resolution;
 
-    current_pose.x = initial_pose.x;
-    current_pose.y = initial_pose.y;
-    current_pose.z = initial_pose.z;
-    current_pose.roll = initial_pose.roll;
-    current_pose.pitch = initial_pose.pitch;
-    current_pose.yaw = initial_pose.yaw;
+        if (_method_type == MethodType::PCL_GENERIC)
+            ndt.setResolution(ndt_res);
+        else if (_method_type == MethodType::PCL_ANH)
+            anh_ndt.setResolution(ndt_res);
+#ifdef USE_PCL_OPENMP
+        else if (_method_type == MethodType::PCL_OPENMP)
+      omp_ndt.setResolution(ndt_res);
+#endif
+    }
 
-    current_velocity = 0;
-    current_velocity_x = 0;
-    current_velocity_y = 0;
-    current_velocity_z = 0;
-    angular_velocity = 0;
+    if (input->step_size != step_size)
+    {
+        step_size = input->step_size;
 
-    current_pose_imu.x = 0;
-    current_pose_imu.y = 0;
-    current_pose_imu.z = 0;
-    current_pose_imu.roll = 0;
-    current_pose_imu.pitch = 0;
-    current_pose_imu.yaw = 0;
+        if (_method_type == MethodType::PCL_GENERIC)
+            ndt.setStepSize(step_size);
+        else if (_method_type == MethodType::PCL_ANH)
+            anh_ndt.setStepSize(step_size);
+#ifdef USE_PCL_OPENMP
+        else if (_method_type == MethodType::PCL_OPENMP)
+      omp_ndt.setStepSize(ndt_res);
+#endif
+    }
 
-    current_velocity_imu_x = current_velocity_x;
-    current_velocity_imu_y = current_velocity_y;
-    current_velocity_imu_z = current_velocity_z;
-    init_pos_set = 1;
-  }
+    if (input->trans_epsilon != trans_eps)
+    {
+        trans_eps = input->trans_epsilon;
+
+        if (_method_type == MethodType::PCL_GENERIC)
+            ndt.setTransformationEpsilon(trans_eps);
+        else if (_method_type == MethodType::PCL_ANH)
+            anh_ndt.setTransformationEpsilon(trans_eps);
+#ifdef USE_PCL_OPENMP
+        else if (_method_type == MethodType::PCL_OPENMP)
+      omp_ndt.setTransformationEpsilon(ndt_res);
+#endif
+    }
+
+    if (input->max_iterations != max_iter)
+    {
+        max_iter = input->max_iterations;
+
+        if (_method_type == MethodType::PCL_GENERIC)
+            ndt.setMaximumIterations(max_iter);
+        else if (_method_type == MethodType::PCL_ANH)
+            anh_ndt.setMaximumIterations(max_iter);
+#ifdef USE_PCL_OPENMP
+        else if (_method_type == MethodType::PCL_OPENMP)
+      omp_ndt.setMaximumIterations(ndt_res);
+#endif
+    }
+
+    if (_use_gnss == 0 && init_pos_set == 0)
+    {
+        initial_pose.x = input->x;
+        initial_pose.y = input->y;
+        initial_pose.z = input->z;
+        initial_pose.roll = input->roll;
+        initial_pose.pitch = input->pitch;
+        initial_pose.yaw = input->yaw;
+
+        if (_use_local_transform == true)
+        {
+            tf::Vector3 v(input->x, input->y, input->z);
+            tf::Quaternion q;
+            q.setRPY(input->roll, input->pitch, input->yaw);
+            tf::Transform transform(q, v);
+            initial_pose.x = (local_transform.inverse() * transform).getOrigin().getX();
+            initial_pose.y = (local_transform.inverse() * transform).getOrigin().getY();
+            initial_pose.z = (local_transform.inverse() * transform).getOrigin().getZ();
+
+            tf::Matrix3x3 m(q);
+            m.getRPY(initial_pose.roll, initial_pose.pitch, initial_pose.yaw);
+
+            std::cout << "initial_pose.x: " << initial_pose.x << std::endl;
+            std::cout << "initial_pose.y: " << initial_pose.y << std::endl;
+            std::cout << "initial_pose.z: " << initial_pose.z << std::endl;
+            std::cout << "initial_pose.roll: " << initial_pose.roll << std::endl;
+            std::cout << "initial_pose.pitch: " << initial_pose.pitch << std::endl;
+            std::cout << "initial_pose.yaw: " << initial_pose.yaw << std::endl;
+        }
+
+        // Setting position and posture for the first time.
+        localizer_pose.x = initial_pose.x;
+        localizer_pose.y = initial_pose.y;
+        localizer_pose.z = initial_pose.z;
+        localizer_pose.roll = initial_pose.roll;
+        localizer_pose.pitch = initial_pose.pitch;
+        localizer_pose.yaw = initial_pose.yaw;
+
+        previous_pose.x = initial_pose.x;
+        previous_pose.y = initial_pose.y;
+        previous_pose.z = initial_pose.z;
+        previous_pose.roll = initial_pose.roll;
+        previous_pose.pitch = initial_pose.pitch;
+        previous_pose.yaw = initial_pose.yaw;
+
+        current_pose.x = initial_pose.x;
+        current_pose.y = initial_pose.y;
+        current_pose.z = initial_pose.z;
+        current_pose.roll = initial_pose.roll;
+        current_pose.pitch = initial_pose.pitch;
+        current_pose.yaw = initial_pose.yaw;
+
+        current_velocity = 0;
+        current_velocity_x = 0;
+        current_velocity_y = 0;
+        current_velocity_z = 0;
+        angular_velocity = 0;
+
+        current_pose_imu.x = 0;
+        current_pose_imu.y = 0;
+        current_pose_imu.z = 0;
+        current_pose_imu.roll = 0;
+        current_pose_imu.pitch = 0;
+        current_pose_imu.yaw = 0;
+
+        current_velocity_imu_x = current_velocity_x;
+        current_velocity_imu_y = current_velocity_y;
+        current_velocity_imu_z = current_velocity_z;
+        init_pos_set = 1;
+    }
 }
 
 static void map_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
@@ -460,29 +450,7 @@ static void map_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
       anh_ndt = new_anh_ndt;
       pthread_mutex_unlock(&mutex);
     }
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-    {
-      std::shared_ptr<gpu::GNormalDistributionsTransform> new_anh_gpu_ndt_ptr =
-          std::make_shared<gpu::GNormalDistributionsTransform>();
-      new_anh_gpu_ndt_ptr->setResolution(ndt_res);
-      new_anh_gpu_ndt_ptr->setInputTarget(map_ptr);
-      new_anh_gpu_ndt_ptr->setMaximumIterations(max_iter);
-      new_anh_gpu_ndt_ptr->setStepSize(step_size);
-      new_anh_gpu_ndt_ptr->setTransformationEpsilon(trans_eps);
 
-      pcl::PointCloud<pcl::PointXYZ>::Ptr dummy_scan_ptr(new pcl::PointCloud<pcl::PointXYZ>());
-      pcl::PointXYZ dummy_point;
-      dummy_scan_ptr->push_back(dummy_point);
-      new_anh_gpu_ndt_ptr->setInputSource(dummy_scan_ptr);
-
-      new_anh_gpu_ndt_ptr->align(Eigen::Matrix4f::Identity());
-
-      pthread_mutex_lock(&mutex);
-      anh_gpu_ndt_ptr = new_anh_gpu_ndt_ptr;
-      pthread_mutex_unlock(&mutex);
-    }
-#endif
 #ifdef USE_PCL_OPENMP
     else if (_method_type == MethodType::PCL_OPENMP)
     {
@@ -920,10 +888,7 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
       ndt.setInputSource(filtered_scan_ptr);
     else if (_method_type == MethodType::PCL_ANH)
       anh_ndt.setInputSource(filtered_scan_ptr);
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-      anh_gpu_ndt_ptr->setInputSource(filtered_scan_ptr);
-#endif
+
 #ifdef USE_PCL_OPENMP
     else if (_method_type == MethodType::PCL_OPENMP)
       omp_ndt.setInputSource(filtered_scan_ptr);
@@ -1020,25 +985,7 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 
       trans_probability = anh_ndt.getTransformationProbability();
     }
-#ifdef CUDA_FOUND
-    else if (_method_type == MethodType::PCL_ANH_GPU)
-    {
-      align_start = std::chrono::system_clock::now();
-      anh_gpu_ndt_ptr->align(init_guess);
-      align_end = std::chrono::system_clock::now();
 
-      has_converged = anh_gpu_ndt_ptr->hasConverged();
-
-      t = anh_gpu_ndt_ptr->getFinalTransformation();
-      iteration = anh_gpu_ndt_ptr->getFinalNumIteration();
-
-      getFitnessScore_start = std::chrono::system_clock::now();
-      fitness_score = anh_gpu_ndt_ptr->getFitnessScore();
-      getFitnessScore_end = std::chrono::system_clock::now();
-
-      trans_probability = anh_gpu_ndt_ptr->getTransformationProbability();
-    }
-#endif
 #ifdef USE_PCL_OPENMP
     else if (_method_type == MethodType::PCL_OPENMP)
     {
@@ -1094,6 +1041,9 @@ static void points_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     predict_pose_error = sqrt((ndt_pose.x - predict_pose_for_ndt.x) * (ndt_pose.x - predict_pose_for_ndt.x) +
                               (ndt_pose.y - predict_pose_for_ndt.y) * (ndt_pose.y - predict_pose_for_ndt.y) +
                               (ndt_pose.z - predict_pose_for_ndt.z) * (ndt_pose.z - predict_pose_for_ndt.z));
+
+    pred_error.data = predict_pose_error;
+    rmse_pub.publish(pred_error);
 
     if (predict_pose_error <= PREDICT_POSE_THRESHOLD)
     {
@@ -1493,7 +1443,7 @@ int main(int argc, char** argv)
     std::time_t now = std::time(NULL);
     std::tm* pnow = std::localtime(&now);
     std::strftime(buffer, 80, "%Y%m%d_%H%M%S", pnow);
-    std::string directory_name = "/tmp/Autoware/log/ndt_matching";
+    std::string directory_name = "/tmp/aslan/log/ndt_matching";
     filename = directory_name + "/" + std::string(buffer) + ".csv";
     boost::filesystem::create_directories(boost::filesystem::path(directory_name));
     ofs.open(filename.c_str(), std::ios::app);
@@ -1501,6 +1451,7 @@ int main(int argc, char** argv)
 
   // Geting parameters
   int method_type_tmp = 0;
+
   private_nh.getParam("method_type", method_type_tmp);
   _method_type = static_cast<MethodType>(method_type_tmp);
   private_nh.getParam("use_gnss", _use_gnss);
@@ -1512,6 +1463,7 @@ int main(int argc, char** argv)
   private_nh.getParam("use_odom", _use_odom);
   private_nh.getParam("imu_upside_down", _imu_upside_down);
   private_nh.getParam("imu_topic", _imu_topic);
+
 
   if (nh.getParam("localizer", _localizer) == false)
   {
@@ -1566,15 +1518,7 @@ int main(int argc, char** argv)
             << _tf_roll << ", " << _tf_pitch << ", " << _tf_yaw << ")" << std::endl;
   std::cout << "-----------------------------------------------------------------" << std::endl;
 
-#ifndef CUDA_FOUND
-  if (_method_type == MethodType::PCL_ANH_GPU)
-  {
-    std::cerr << "**************************************************************" << std::endl;
-    std::cerr << "[ERROR]PCL_ANH_GPU is not built. Please use other method type." << std::endl;
-    std::cerr << "**************************************************************" << std::endl;
-    exit(1);
-  }
-#endif
+
 #ifndef USE_PCL_OPENMP
   if (_method_type == MethodType::PCL_OPENMP)
   {
@@ -1612,12 +1556,13 @@ int main(int argc, char** argv)
   estimated_vel_kmph_pub = nh.advertise<std_msgs::Float32>("/estimated_vel_kmph", 10);
   estimated_vel_pub = nh.advertise<geometry_msgs::Vector3Stamped>("/estimated_vel", 10);
   time_ndt_matching_pub = nh.advertise<std_msgs::Float32>("/time_ndt_matching", 10);
-  ndt_stat_pub = nh.advertise<autoware_msgs::NDTStat>("/ndt_stat", 10);
+  ndt_stat_pub = nh.advertise<aslan_msgs::NDTStat>("/ndt_stat", 10);
   ndt_reliability_pub = nh.advertise<std_msgs::Float32>("/ndt_reliability", 10);
+  rmse_pub = nh.advertise<std_msgs::Float64>("/rmse", 10);
 
-  // Subscribers
-  ros::Subscriber param_sub = nh.subscribe("config/ndt", 10, param_callback);
+  //Subscribers
   ros::Subscriber gnss_sub = nh.subscribe("gnss_pose", 10, gnss_callback);
+  ros::Subscriber param_sub = nh.subscribe("config/ndt", 10, param_callback);
   //  ros::Subscriber map_sub = nh.subscribe("points_map", 1, map_callback);
   ros::Subscriber initialpose_sub = nh.subscribe("initialpose", 10, initialpose_callback);
   ros::Subscriber points_sub = nh.subscribe("filtered_points", _queue_size, points_callback);

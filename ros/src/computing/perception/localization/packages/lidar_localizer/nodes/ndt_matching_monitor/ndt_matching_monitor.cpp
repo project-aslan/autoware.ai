@@ -1,5 +1,11 @@
 /*
- * Copyright 2018-2019 Autoware Foundation. All rights reserved.
+ * Originally included at Autoware.ai version 1.10.0 and
+ * has been modified to fit the requirements of Project ASLAN.
+ *
+ * Copyright (C) 2020 Project ASLAN - All rights reserved
+ *
+ * Original copyright notice:
+ * Copyright 2015-2019 Autoware Foundation. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -29,7 +35,7 @@ void ROSNDTMatchingMonitor::gnss_callback(const geometry_msgs::PoseStamped::Cons
     gnss_text_ = " - GNSS available";
 }
 
-void ROSNDTMatchingMonitor::ndt_stat_callback(const autoware_msgs::NDTStat::ConstPtr& input)
+void ROSNDTMatchingMonitor::ndt_stat_callback(const aslan_msgs::NDTStat::ConstPtr& input)
 {
     iteration_count_ = input->iteration;
 
@@ -199,11 +205,11 @@ void ROSNDTMatchingMonitor::Run()
     ros::NodeHandle private_nh("~");
 
     // Geting parameters
-    private_nh.param("/monitor/iteration_threshold_warn", iteration_threshold_warning_, NDT_THRESHOLD_ITERATION_WARN);
-    private_nh.param("/monitor/iteration_threshold_stop", iteration_threshold_stop_, NDT_THRESHOLD_ITERATION_STOP);
-    private_nh.param("/monitor/score_delta_threshold", score_delta_threshold_, NDT_THRESHOLD_SCORE_MAX_DELTA);
-    private_nh.param("/monitor/min_stable_samples", min_stable_samples_, NDT_MIN_STABLE_SAMPLES);
-    private_nh.param("/monitor/fatal_time_threshold", fatal_time_threshold_, NDT_TIME_TO_FATAL_PREDICTIONS);
+    private_nh.param("/ndt_monitor/iteration_threshold_warn", iteration_threshold_warning_, NDT_THRESHOLD_ITERATION_WARN);
+    private_nh.param("/ndt_monitor/iteration_threshold_stop", iteration_threshold_stop_, NDT_THRESHOLD_ITERATION_STOP);
+    private_nh.param("/ndt_monitor/score_delta_threshold", score_delta_threshold_, NDT_THRESHOLD_SCORE_MAX_DELTA);
+    private_nh.param("/ndt_monitor/min_stable_samples", min_stable_samples_, NDT_MIN_STABLE_SAMPLES);
+    private_nh.param("/ndt_monitor/fatal_time_threshold", fatal_time_threshold_, NDT_TIME_TO_FATAL_PREDICTIONS);
 
 
     //swap values in case of error
