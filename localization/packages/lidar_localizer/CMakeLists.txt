@@ -58,19 +58,20 @@ catkin_package(
 ###########
 
 include_directories(include ${catkin_INCLUDE_DIRS}
- ${aslan_msgs_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS})
+ ${aslan_msgs_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIRS}
+ )
 
 SET(CMAKE_CXX_FLAGS "-O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 
-add_executable(save_pcd nodes/save_pcd/save_pcd.cpp)
+add_executable(save_pcd nodes/save_pcd/save_pcd_main.cpp nodes/save_pcd/save_pcd.cpp)
 target_link_libraries(save_pcd ${catkin_LIBRARIES})
 add_dependencies(save_pcd ${catkin_EXPORTED_TARGETS})
 
-add_executable(ndt_matching nodes/ndt_matching/ndt_matching.cpp)
+add_executable(ndt_matching nodes/ndt_matching/ndt_matching_main.cpp nodes/ndt_matching/ndt_matching.cpp)
 target_link_libraries(ndt_matching ${catkin_LIBRARIES})
 add_dependencies(ndt_matching ${catkin_EXPORTED_TARGETS})
 
-add_executable(ndt_mapping nodes/ndt_mapping/ndt_mapping.cpp)
+add_executable(ndt_mapping nodes/ndt_mapping/ndt_mapping_main.cpp nodes/ndt_mapping/ndt_mapping.cpp)
 target_link_libraries(ndt_mapping ${catkin_LIBRARIES})
 add_dependencies(ndt_mapping ${catkin_EXPORTED_TARGETS})
 
@@ -82,7 +83,7 @@ endif (NOT (PCL_VERSION VERSION_LESS "1.7.2"))
 
 
 add_library(ndt_matching_monitor_lib SHARED
-        nodes/ndt_matching_monitor/ndt_matching_monitor.h
+        include/ndt_matching_monitor.h
         nodes/ndt_matching_monitor/ndt_matching_monitor.cpp
         )
 target_include_directories(ndt_matching_monitor_lib PRIVATE
@@ -98,7 +99,7 @@ target_link_libraries(ndt_matching_monitor_lib ${catkin_LIBRARIES})
 add_executable(ndt_matching_monitor nodes/ndt_matching_monitor/ndt_matching_monitor_node.cpp)
 target_link_libraries(ndt_matching_monitor ndt_matching_monitor_lib ${catkin_LIBRARIES})
 
-install(TARGETS ndt_matching_monitor
+install(TARGETS ndt_matching_monitor ndt_matching_monitor_lib
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}

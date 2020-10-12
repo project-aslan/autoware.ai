@@ -1,6 +1,8 @@
 /*
  * Originally included at Autoware.ai version 1.10.0 and
- * has been modified to fit the requirements of Project ASLAN.
+ * has been modified and redesigned significantly for Project Aslan
+ *
+ * Author: Abdelrahman Barghouth
  *
  * Copyright (C) 2020 Project ASLAN - All rights reserved
  *
@@ -72,6 +74,12 @@ geometry_msgs::PoseWithCovarianceStamped
 
     return predicted_pose;
 
+}
+
+geometry_msgs::PoseWithCovarianceStamped ROSNDTMatchingMonitor::predict_next_pose_test(geometry_msgs::PoseWithCovarianceStamped prev_pose,
+                                                 geometry_msgs::PoseWithCovarianceStamped current_pose)
+{
+    return predict_next_pose(prev_pose, current_pose);
 }
 
 void ROSNDTMatchingMonitor::initialpose_callback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& input)

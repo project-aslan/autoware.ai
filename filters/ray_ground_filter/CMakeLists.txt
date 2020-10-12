@@ -88,11 +88,11 @@ target_include_directories(ray_ground_filter PRIVATE
         include)
 
 target_link_libraries(ray_ground_filter
-        ray_ground_filter_lib)
+        ray_ground_filter_lib ${catkin_LIBRARIES})
 
-add_dependencies(ray_ground_filter ${catkin_EXPORTED_TARGETS})
+add_dependencies(ray_ground_filter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
-install(TARGETS ray_ground_filter
+install(TARGETS ray_ground_filter ray_ground_filter_lib
         ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
@@ -102,4 +102,4 @@ install(DIRECTORY include/
         DESTINATION ${CATKIN_GLOBAL_INCLUDE_DESTINATION}
         PATTERN ".svn" EXCLUDE
         )
-
+        

@@ -1,5 +1,3 @@
-// Originally included at Autoware.ai version 1.10.0  
-
 #ifndef OCTREE_H_
 #define OCTREE_H_
 

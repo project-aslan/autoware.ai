@@ -1,6 +1,8 @@
 /*
  * Originally included at Autoware.ai version 1.10.0 and
- * has been modified to fit the requirements of Project ASLAN.
+ * has been modified and redesigned significantly for Project Aslan
+ *
+ * Author: Abdelrahman Barghouth
  *
  * Copyright (C) 2020 Project ASLAN - All rights reserved
  *
@@ -34,40 +36,22 @@
 #include <chrono>
 
 #include "points_downsampler.h"
+#include "voxel_grid_filter.h"
 
-#define MAX_MEASUREMENT_RANGE 200.0
-
-ros::Publisher filtered_points_pub;
-
-// Leaf size of VoxelGrid filter.
-static double voxel_leaf_size = 2.0;
-
-static ros::Publisher points_downsampler_info_pub;
-static voxel_grid_filter::PointsDownsamplerInfo points_downsampler_info_msg;
-
-static std::chrono::time_point<std::chrono::system_clock> filter_start, filter_end;
-
-static bool _output_log = false;
-static std::ofstream ofs;
-static std::string filename;
-
-static std::string POINTS_TOPIC;
-static double measurement_range = MAX_MEASUREMENT_RANGE;
-
-static void param_callback(const aslan_msgs::ConfigVoxelGridFilter::ConstPtr& input)
+void voxel_grid_class::param_callback(const aslan_msgs::ConfigVoxelGridFilter::ConstPtr& input)
 {
-  voxel_leaf_size = input->voxel_leaf_size;
-  measurement_range = input->measurement_range;
+  voxel_grid_class::voxel_leaf_size = input->voxel_leaf_size;
+  voxel_grid_class::measurement_range = input->measurement_range;
 
 }
 
-static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
+void voxel_grid_class::scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 {
   pcl::PointCloud<pcl::PointXYZI> scan;
   pcl::fromROSMsg(*input, scan);
 
-  if(measurement_range != MAX_MEASUREMENT_RANGE){
-    scan = removePointsByRange(scan, 0, measurement_range);
+  if(voxel_grid_class::measurement_range != MAX_MEASUREMENT_RANGE){
+    scan = removePointsByRange(scan, 0, voxel_grid_class::measurement_range);
   }
 
   pcl::PointCloud<pcl::PointXYZI>::Ptr scan_ptr(new pcl::PointCloud<pcl::PointXYZI>(scan));
@@ -75,14 +59,14 @@ static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
 
   sensor_msgs::PointCloud2 filtered_msg;
 
-  filter_start = std::chrono::system_clock::now();
+  voxel_grid_class::filter_start = std::chrono::system_clock::now();
 
-  // if voxel_leaf_size < 0.1 voxel_grid_filter cannot down sample (It is specification in PCL)
-  if (voxel_leaf_size >= 0.1)
+  // if voxel_grid_class::voxel_leaf_size < 0.1 voxel_grid_filter cannot down sample (It is specification in PCL)
+  if (voxel_grid_class::voxel_leaf_size >= 0.1)
   {
     // Downsampling the velodyne scan using VoxelGrid filter
     pcl::VoxelGrid<pcl::PointXYZI> voxel_grid_filter;
-    voxel_grid_filter.setLeafSize(voxel_leaf_size, voxel_leaf_size, voxel_leaf_size);
+    voxel_grid_filter.setLeafSize(voxel_grid_class::voxel_leaf_size, voxel_grid_class::voxel_leaf_size, voxel_grid_class::voxel_leaf_size);
     voxel_grid_filter.setInputCloud(scan_ptr);
     voxel_grid_filter.filter(*filtered_scan_ptr);
     pcl::toROSMsg(*filtered_scan_ptr, filtered_msg);
@@ -92,73 +76,73 @@ static void scan_callback(const sensor_msgs::PointCloud2::ConstPtr& input)
     pcl::toROSMsg(*scan_ptr, filtered_msg);
   }
 
-  filter_end = std::chrono::system_clock::now();
+  voxel_grid_class::filter_end = std::chrono::system_clock::now();
 
   filtered_msg.header = input->header;
-  filtered_points_pub.publish(filtered_msg);
+  voxel_grid_class::filtered_points_pub.publish(filtered_msg);
 
-  points_downsampler_info_msg.header = input->header;
-  points_downsampler_info_msg.filter_name = "voxel_grid_filter";
-  points_downsampler_info_msg.measurement_range = measurement_range;
-  points_downsampler_info_msg.original_points_size = scan.size();
-  if (voxel_leaf_size >= 0.1)
+  voxel_grid_class::points_downsampler_info_msg.header = input->header;
+  voxel_grid_class::points_downsampler_info_msg.filter_name = "voxel_grid_filter";
+  voxel_grid_class::points_downsampler_info_msg.measurement_range = voxel_grid_class::measurement_range;
+  voxel_grid_class::points_downsampler_info_msg.original_points_size = scan.size();
+  if (voxel_grid_class::voxel_leaf_size >= 0.1)
   {
-    points_downsampler_info_msg.filtered_points_size = filtered_scan_ptr->size();
+    voxel_grid_class::points_downsampler_info_msg.filtered_points_size = filtered_scan_ptr->size();
   }
   else
   {
-    points_downsampler_info_msg.filtered_points_size = scan_ptr->size();
+    voxel_grid_class::points_downsampler_info_msg.filtered_points_size = scan_ptr->size();
   }
-  points_downsampler_info_msg.original_ring_size = 0;
-  points_downsampler_info_msg.filtered_ring_size = 0;
-  points_downsampler_info_msg.exe_time = std::chrono::duration_cast<std::chrono::microseconds>(filter_end - filter_start).count() / 1000.0;
-  points_downsampler_info_pub.publish(points_downsampler_info_msg);
+  voxel_grid_class::points_downsampler_info_msg.original_ring_size = 0;
+  voxel_grid_class::points_downsampler_info_msg.filtered_ring_size = 0;
+  voxel_grid_class::points_downsampler_info_msg.exe_time = std::chrono::duration_cast<std::chrono::microseconds>(voxel_grid_class::filter_end - voxel_grid_class::filter_start).count() / 1000.0;
+  voxel_grid_class::points_downsampler_info_pub.publish(voxel_grid_class::points_downsampler_info_msg);
 
-  if(_output_log == true){
-	  if(!ofs){
-		  std::cerr << "Could not open " << filename << "." << std::endl;
+  if(voxel_grid_class::_output_log == true){
+	  if(!voxel_grid_class::ofs){
+		  std::cerr << "Could not open " << voxel_grid_class::filename << "." << std::endl;
 		  exit(1);
 	  }
-	  ofs << points_downsampler_info_msg.header.seq << ","
-		  << points_downsampler_info_msg.header.stamp << ","
-		  << points_downsampler_info_msg.header.frame_id << ","
-		  << points_downsampler_info_msg.filter_name << ","
-		  << points_downsampler_info_msg.original_points_size << ","
-		  << points_downsampler_info_msg.filtered_points_size << ","
-		  << points_downsampler_info_msg.original_ring_size << ","
-		  << points_downsampler_info_msg.filtered_ring_size << ","
-		  << points_downsampler_info_msg.exe_time << ","
+	  voxel_grid_class::ofs << voxel_grid_class::points_downsampler_info_msg.header.seq << ","
+		  << voxel_grid_class::points_downsampler_info_msg.header.stamp << ","
+		  << voxel_grid_class::points_downsampler_info_msg.header.frame_id << ","
+		  << voxel_grid_class::points_downsampler_info_msg.filter_name << ","
+		  << voxel_grid_class::points_downsampler_info_msg.original_points_size << ","
+		  << voxel_grid_class::points_downsampler_info_msg.filtered_points_size << ","
+		  << voxel_grid_class::points_downsampler_info_msg.original_ring_size << ","
+		  << voxel_grid_class::points_downsampler_info_msg.filtered_ring_size << ","
+		  << voxel_grid_class::points_downsampler_info_msg.exe_time << ","
 		  << std::endl;
   }
 
 }
 
-int main(int argc, char** argv)
+int voxel_grid_class::RUN(int argc, char** argv)
 {
   ros::init(argc, argv, "voxel_grid_filter");
 
   ros::NodeHandle nh;
   ros::NodeHandle private_nh("~");
 
-  private_nh.getParam("points_topic", POINTS_TOPIC);
-  private_nh.getParam("output_log", _output_log);
+  private_nh.getParam("points_topic", voxel_grid_class::POINTS_TOPIC);
+  private_nh.getParam("output_log", voxel_grid_class::_output_log);
 
-  if(_output_log == true){
+  if(voxel_grid_class::_output_log == true){
 	  char buffer[80];
 	  std::time_t now = std::time(NULL);
 	  std::tm *pnow = std::localtime(&now);
 	  std::strftime(buffer,80,"%Y%m%d_%H%M%S",pnow);
-	  filename = "voxel_grid_filter_" + std::string(buffer) + ".csv";
-	  ofs.open(filename.c_str(), std::ios::app);
+	  voxel_grid_class::filename = "voxel_grid_filter_" + std::string(buffer) + ".csv";
+	  voxel_grid_class::ofs.open(voxel_grid_class::filename.c_str(), std::ios::app);
   }
 
   // Publishers
-  filtered_points_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points", 10);
-  points_downsampler_info_pub = nh.advertise<voxel_grid_filter::PointsDownsamplerInfo>("/voxel_grid_filter_info", 1000);
+  voxel_grid_class::filtered_points_pub = nh.advertise<sensor_msgs::PointCloud2>("/filtered_points", 10);
+  voxel_grid_class::points_downsampler_info_pub = nh.advertise<voxel_grid_filter::PointsDownsamplerInfo>("/voxel_grid_filter_info", 1000);
 
   // Subscribers
-  ros::Subscriber param_sub = nh.subscribe("config/voxel_grid_filter", 10, param_callback);
-  ros::Subscriber scan_sub = nh.subscribe(POINTS_TOPIC, 10, scan_callback);
+  ros::Subscriber param_sub = nh.subscribe("config/voxel_grid_filter", 10, &voxel_grid_class::param_callback, this);
+  ros::Subscriber scan_sub = nh.subscribe(voxel_grid_class::POINTS_TOPIC, 10, &voxel_grid_class::scan_callback, this);
 
   ros::spin();
 

@@ -5,6 +5,7 @@
   <description>The lidar_localizer package</description>
 
   <maintainer email="efimia@streetdrone.com">Efimia Panagiotaki</maintainer>
+  <maintainer email="abdelrahman.barghouth@streetdrone.com">Abdelrahman Barghouth</maintainer>
 
   <license>Apache 2</license>
 

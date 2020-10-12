@@ -1,6 +1,3 @@
-// Originally included at Autoware.ai version 1.10.0  
-
-
 #include "ndt_cpu/Octree.h"
 #include "ndt_cpu/debug.h"
 #include <math.h>

@@ -1,5 +1,3 @@
-// Originally included at Autoware.ai version 1.10.0  
-
 #ifndef CPU_VGRID_H_
 #define CPU_VGRID_H_
 

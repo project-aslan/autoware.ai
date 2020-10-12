@@ -32,7 +32,7 @@ add_library(get_file
         )
 target_link_libraries(get_file ${CURL_LIBRARIES})
 
-add_executable(points_map_loader src/points_map_loader.cpp)
+add_executable(points_map_loader src/points_map_loader_main.cpp src/points_map_loader.cpp)
 target_link_libraries(points_map_loader ${catkin_LIBRARIES} get_file ${CURL_LIBRARIES} ${PCL_IO_LIBRARIES})
 add_dependencies(points_map_loader ${catkin_EXPORTED_TARGETS})
 
@@ -43,5 +43,6 @@ install(TARGETS get_file points_map_loader
         RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 ## Install project namespaced headers
-install(DIRECTORY include/${PROJECT_NAME}/
+install(DIRECTORY include
         DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
+        
