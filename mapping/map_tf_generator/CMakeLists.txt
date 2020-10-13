@@ -12,14 +12,14 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package()
 
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
 add_executable(
-  map_tf_generator nodes/map_tf_generator.cpp
+  map_tf_generator nodes/map_tf_generator_main.cpp nodes/map_tf_generator.cpp
 )
 
 target_link_libraries(
   map_tf_generator ${catkin_LIBRARIES}
 )
-

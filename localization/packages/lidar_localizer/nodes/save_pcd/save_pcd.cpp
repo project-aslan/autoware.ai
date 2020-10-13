@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2020 Project ASLAN - All rights reserved
- * 
+ *
  * Author: Abdelrahman Barghouth
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,23 +35,21 @@
 
 #include <ros/ros.h>
 #include <aslan_msgs/ConfigNDTMappingOutput.h>
+#include "save_pcd.h"
 
-static ros::Publisher pcd_saver_pub;
-
-int main(int argc, char **argv)
+int Save_PCD::RUN(int argc, char **argv)
 {
     ros::init(argc, argv, "save_pcd");
 
     ros::NodeHandle nh("~");
     ros::NodeHandle private_nh("~");
 
-    pcd_saver_pub = nh.advertise<aslan_msgs::ConfigNDTMappingOutput>("/config/ndt_mapping_output", 1000);
+    ros::Publisher pcd_saver_pub = nh.advertise<aslan_msgs::ConfigNDTMappingOutput>("/config/ndt_mapping_output", 1000);
     aslan_msgs::ConfigNDTMappingOutput pcd_saver_msg;
 
-    std::string filename;
-    nh.getParam("filename", filename);
-    ROS_INFO("Got parameter : %s", filename.c_str());
-    pcd_saver_msg.filename = filename;
+    nh.getParam("Save_PCD::filename", Save_PCD::filename);
+    ROS_INFO("Got parameter : %s", Save_PCD::filename.c_str());
+    pcd_saver_msg.filename = Save_PCD::filename;
     pcd_saver_msg.filter_res = 0.2;
 
     sleep(1);

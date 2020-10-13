@@ -40,6 +40,6 @@ include_directories(include ${catkin_INCLUDE_DIRS}
  ${aslan_msgs_INCLUDE_DIRS})
 SET(CMAKE_CXX_FLAGS "-O2 -g -Wall ${CMAKE_CXX_FLAGS}")
 
-add_executable(voxel_grid_filter src/voxel_grid_filter.cpp)
+add_executable(voxel_grid_filter src/voxel_grid_filter_main.cpp src/voxel_grid_filter.cpp)
 add_dependencies(voxel_grid_filter ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(voxel_grid_filter ${catkin_LIBRARIES})

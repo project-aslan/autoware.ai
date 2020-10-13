@@ -1,6 +1,8 @@
 /*
  * Originally included at Autoware.ai version 1.10.0 and
- * has been modified to fit the requirements of Project ASLAN.
+ * has been modified and redesigned significantly for Project Aslan
+ *
+ * Author: Abdelrahman Barghouth
  *
  * Copyright (C) 2020 Project ASLAN - All rights reserved
  *
@@ -18,8 +20,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- *
  */
 
 #include <condition_variable>
@@ -34,23 +34,7 @@
 #include "aslan_msgs/LaneArray.h"
 
 #include <map_file/get_file.h>
-
-namespace {
-
-class RequestQueue {
-private:
-	std::queue<geometry_msgs::Point> queue_; // takes priority over look_ahead_queue_
-	std::queue<geometry_msgs::Point> look_ahead_queue_;
-	std::mutex mtx_;
-	std::condition_variable cv_;
-
-public:
-	void enqueue(const geometry_msgs::Point& p);
-	void enqueue_look_ahead(const geometry_msgs::Point& p);
-	void clear();
-	void clear_look_ahead();
-	geometry_msgs::Point dequeue();
-};
+#include "points_map_loader.h"
 
 void RequestQueue::enqueue(const geometry_msgs::Point& p)
 {
@@ -96,46 +80,7 @@ geometry_msgs::Point RequestQueue::dequeue()
 	}
 }
 
-struct Area {
-	std::string path;
-	double x_min;
-	double y_min;
-	double z_min;
-	double x_max;
-	double y_max;
-	double z_max;
-};
-
-typedef std::vector<Area> AreaList;
-typedef std::vector<std::vector<std::string>> Tbl;
-
-constexpr int DEFAULT_UPDATE_RATE = 1000; // ms
-constexpr double MARGIN_UNIT = 100; // meter
-constexpr int ROUNDING_UNIT = 1000; // meter
-const std::string AREALIST_FILENAME = "arealist.txt";
-const std::string TEMPORARY_DIRNAME = "/tmp/";
-
-int update_rate;
-int fallback_rate;
-double margin;
-bool can_download;
-
-ros::Time gnss_time;
-ros::Time current_time;
-
-ros::Publisher pcd_pub;
-ros::Publisher stat_pub;
-std_msgs::Bool stat_msg;
-
-AreaList all_areas;
-AreaList downloaded_areas;
-std::mutex downloaded_areas_mtx;
-std::vector<std::string> cached_arealist_paths;
-
-GetFile gf;
-RequestQueue request_queue;
-
-Tbl read_csv(const std::string& path)
+Tbl pcd_loader::read_csv(const std::string& path)
 {
 	std::ifstream ifs(path.c_str());
 	std::string line;
@@ -151,7 +96,7 @@ Tbl read_csv(const std::string& path)
 	return ret;
 }
 
-void write_csv(const std::string& path, const Tbl& tbl)
+void pcd_loader::write_csv(const std::string& path, const Tbl& tbl)
 {
 	std::ofstream ofs(path.c_str());
 	for (const std::vector<std::string>& cols : tbl) {
@@ -166,9 +111,9 @@ void write_csv(const std::string& path, const Tbl& tbl)
 	}
 }
 
-AreaList read_arealist(const std::string& path)
+AreaList pcd_loader::read_arealist(const std::string& path)
 {
-	Tbl tbl = read_csv(path);
+	Tbl tbl = pcd_loader::read_csv(path);
 	AreaList ret;
 	for (const std::vector<std::string>& cols : tbl) {
 		Area area;
@@ -184,7 +129,7 @@ AreaList read_arealist(const std::string& path)
 	return ret;
 }
 
-void write_arealist(const std::string& path, const AreaList& areas)
+void pcd_loader::write_arealist(const std::string& path, const AreaList& areas)
 {
 	Tbl tbl;
 	for (const Area& area : areas) {
@@ -198,28 +143,28 @@ void write_arealist(const std::string& path, const AreaList& areas)
 		cols.push_back(std::to_string(area.z_max));
 		tbl.push_back(cols);
 	}
-	write_csv(path, tbl);
+	pcd_loader::write_csv(path, tbl);
 }
 
-bool is_downloaded(const std::string& path)
+bool pcd_loader::is_downloaded(const std::string& path)
 {
 	struct stat st;
 	return (stat(path.c_str(), &st) == 0);
 }
 
-bool is_in_area(double x, double y, const Area& area, double m)
+bool pcd_loader::is_in_area(double x, double y, const Area& area, double m)
 {
 	return ((area.x_min - m) <= x && x <= (area.x_max + m) && (area.y_min - m) <= y && y <= (area.y_max + m));
 }
 
-std::string create_location(int x, int y)
+std::string pcd_loader::create_location(int x, int y)
 {
-	x -= x % ROUNDING_UNIT;
-	y -= y % ROUNDING_UNIT;
+	x -= x % pcd_loader::ROUNDING_UNIT;
+	y -= y % pcd_loader::ROUNDING_UNIT;
 	return ("data/map/" + std::to_string(y) + "/" + std::to_string(x) + "/pointcloud/");
 }
 
-void cache_arealist(const Area& area, AreaList& areas)
+void pcd_loader::cache_arealist(const Area& area, AreaList& areas)
 {
 	for (const Area& a : areas) {
 		if (a.path == area.path)
@@ -228,7 +173,7 @@ void cache_arealist(const Area& area, AreaList& areas)
 	areas.push_back(area);
 }
 
-int download(GetFile gf, const std::string& tmp, const std::string& loc, const std::string& filename)
+int pcd_loader::download(GetFile gf, const std::string& tmp, const std::string& loc, const std::string& filename)
 {
 	std::string pathname;
 	pathname += tmp;
@@ -239,32 +184,32 @@ int download(GetFile gf, const std::string& tmp, const std::string& loc, const s
 		mkdir(pathname.c_str(), 0755);
 	}
 
-	return gf.GetHTTPFile(loc + filename);
+	return pcd_loader::gf.GetHTTPFile(loc + filename);
 }
 
-void download_map()
+void pcd_loader::download_map()
 {
 	while (true) {
-		geometry_msgs::Point p = request_queue.dequeue();
+		geometry_msgs::Point p = pcd_loader::request_queue.dequeue();
 
 		int x = static_cast<int>(p.x);
 		int y = static_cast<int>(p.y);
-		int x_min = static_cast<int>(p.x - margin);
-		int y_min = static_cast<int>(p.y - margin);
-		int x_max = static_cast<int>(p.x + margin);
-		int y_max = static_cast<int>(p.y + margin);
+		int x_min = static_cast<int>(p.x - pcd_loader::margin);
+		int y_min = static_cast<int>(p.y - pcd_loader::margin);
+		int x_max = static_cast<int>(p.x + pcd_loader::margin);
+		int y_max = static_cast<int>(p.y + pcd_loader::margin);
 
 		std::vector<std::string> locs;
-		locs.push_back(create_location(x, y));
-		locs.push_back(create_location(x_min, y_min));
-		locs.push_back(create_location(x_min, y_max));
-		locs.push_back(create_location(x_max, y_min));
-		locs.push_back(create_location(x_max, y_max));
+		locs.push_back(pcd_loader::create_location(x, y));
+		locs.push_back(pcd_loader::create_location(x_min, y_min));
+		locs.push_back(pcd_loader::create_location(x_min, y_max));
+		locs.push_back(pcd_loader::create_location(x_max, y_min));
+		locs.push_back(pcd_loader::create_location(x_max, y_max));
 		for (const std::string& loc : locs) { // XXX better way?
-			std::string arealist_path = TEMPORARY_DIRNAME + loc + AREALIST_FILENAME;
+			std::string arealist_path = pcd_loader::TEMPORARY_DIRNAME + loc + pcd_loader::AREALIST_FILENAME;
 
 			bool cached = false;
-			for (const std::string& path : cached_arealist_paths) {
+			for (const std::string& path : pcd_loader::cached_arealist_paths) {
 				if (path == arealist_path) {
 					cached = true;
 					break;
@@ -274,42 +219,42 @@ void download_map()
 				continue;
 
 			AreaList areas;
-			if (is_downloaded(arealist_path))
-				areas = read_arealist(arealist_path);
+			if (pcd_loader::is_downloaded(arealist_path))
+				areas = pcd_loader::read_arealist(arealist_path);
 			else {
-				if (download(gf, TEMPORARY_DIRNAME, loc, AREALIST_FILENAME) != 0)
+				if (pcd_loader::download(pcd_loader::gf, pcd_loader::TEMPORARY_DIRNAME, loc, pcd_loader::AREALIST_FILENAME) != 0)
 					continue;
-				areas = read_arealist(arealist_path);
+				areas = pcd_loader::read_arealist(arealist_path);
 				for (Area& area : areas)
-					area.path = TEMPORARY_DIRNAME + loc + basename(area.path.c_str());
-				write_arealist(arealist_path, areas);
+					area.path = pcd_loader::TEMPORARY_DIRNAME + loc + basename(area.path.c_str());
+				pcd_loader::write_arealist(arealist_path, areas);
 			}
 			for (const Area& area : areas)
-				cache_arealist(area, all_areas);
-			cached_arealist_paths.push_back(arealist_path);
+				pcd_loader::cache_arealist(area, pcd_loader::all_areas);
+			pcd_loader::cached_arealist_paths.push_back(arealist_path);
 		}
 
-		for (const Area& area : all_areas) {
-			if (is_in_area(p.x, p.y, area, margin)) {
-				int x_area = static_cast<int>(area.x_max - MARGIN_UNIT);
-				int y_area = static_cast<int>(area.y_max - MARGIN_UNIT);
-				std::string loc = create_location(x_area, y_area);
-				if (is_downloaded(area.path) ||
-				    download(gf, TEMPORARY_DIRNAME, loc, basename(area.path.c_str())) == 0) {
-					std::unique_lock<std::mutex> lock(downloaded_areas_mtx);
-					cache_arealist(area, downloaded_areas);
+		for (const Area& area : pcd_loader::all_areas) {
+			if (pcd_loader::is_in_area(p.x, p.y, area, pcd_loader::margin)) {
+				int x_area = static_cast<int>(area.x_max - pcd_loader::MARGIN_UNIT);
+				int y_area = static_cast<int>(area.y_max - pcd_loader::MARGIN_UNIT);
+				std::string loc = pcd_loader::create_location(x_area, y_area);
+				if (pcd_loader::is_downloaded(area.path) ||
+				    pcd_loader::download(pcd_loader::gf, pcd_loader::TEMPORARY_DIRNAME, loc, basename(area.path.c_str())) == 0) {
+					std::unique_lock<std::mutex> lock(pcd_loader::downloaded_areas_mtx);
+					pcd_loader::cache_arealist(area, pcd_loader::downloaded_areas);
 				}
 			}
 		}
 	}
 }
 
-sensor_msgs::PointCloud2 create_pcd(const geometry_msgs::Point& p)
+sensor_msgs::PointCloud2 pcd_loader::create_pcd(const geometry_msgs::Point& p)
 {
 	sensor_msgs::PointCloud2 pcd, part;
-	std::unique_lock<std::mutex> lock(downloaded_areas_mtx);
-	for (const Area& area : downloaded_areas) {
-		if (is_in_area(p.x, p.y, area, margin)) {
+	std::unique_lock<std::mutex> lock(pcd_loader::downloaded_areas_mtx);
+	for (const Area& area : pcd_loader::downloaded_areas) {
+		if (pcd_loader::is_in_area(p.x, p.y, area, pcd_loader::margin)) {
 			if (pcd.width == 0)
 				pcl::io::loadPCDFile(area.path.c_str(), pcd);
 			else {
@@ -324,7 +269,7 @@ sensor_msgs::PointCloud2 create_pcd(const geometry_msgs::Point& p)
 	return pcd;
 }
 
-sensor_msgs::PointCloud2 create_pcd(const std::vector<std::string>& pcd_paths, int* ret_err = NULL)
+sensor_msgs::PointCloud2 pcd_loader::create_pcd(const std::vector<std::string>& pcd_paths, int* ret_err /*= NULL*/)
 {
 	sensor_msgs::PointCloud2 pcd, part;
 	for (const std::string& path : pcd_paths) {
@@ -349,48 +294,48 @@ sensor_msgs::PointCloud2 create_pcd(const std::vector<std::string>& pcd_paths, i
 	return pcd;
 }
 
-void publish_pcd(sensor_msgs::PointCloud2 pcd, const int* errp = NULL)
+void pcd_loader::publish_pcd(sensor_msgs::PointCloud2 pcd, const int* errp /*= NULL*/)
 {
 	if (pcd.width != 0) {
 		pcd.header.frame_id = "map";
-		pcd_pub.publish(pcd);
+		pcd_loader::pcd_pub.publish(pcd);
 
 		if (errp == NULL || *errp == 0) {
-			stat_msg.data = true;
-			stat_pub.publish(stat_msg);
+			pcd_loader::stat_msg.data = true;
+			pcd_loader::stat_pub.publish(pcd_loader::stat_msg);
 		}
 	}
 }
 
-void publish_gnss_pcd(const geometry_msgs::PoseStamped& msg)
+void pcd_loader::publish_gnss_pcd(const geometry_msgs::PoseStamped& msg)
 {
 	ros::Time now = ros::Time::now();
-	if (((now - current_time).toSec() * 1000) < fallback_rate)
+	if (((now - pcd_loader::current_time).toSec() * 1000) < pcd_loader::fallback_rate)
 		return;
-	if (((now - gnss_time).toSec() * 1000) < update_rate)
+	if (((now - pcd_loader::gnss_time).toSec() * 1000) < pcd_loader::update_rate)
 		return;
-	gnss_time = now;
+	pcd_loader::gnss_time = now;
 
-	if (can_download)
-		request_queue.enqueue(msg.pose.position);
+	if (pcd_loader::can_download)
+		pcd_loader::request_queue.enqueue(msg.pose.position);
 
-	publish_pcd(create_pcd(msg.pose.position));
+	pcd_loader::publish_pcd(pcd_loader::create_pcd(msg.pose.position));
 }
 
-void publish_current_pcd(const geometry_msgs::PoseStamped& msg)
+void pcd_loader::publish_current_pcd(const geometry_msgs::PoseStamped& msg)
 {
 	ros::Time now = ros::Time::now();
-	if (((now - current_time).toSec() * 1000) < update_rate)
+	if (((now - pcd_loader::current_time).toSec() * 1000) < pcd_loader::update_rate)
 		return;
-	current_time = now;
+	pcd_loader::current_time = now;
 
-	if (can_download)
-		request_queue.enqueue(msg.pose.position);
+	if (pcd_loader::can_download)
+		pcd_loader::request_queue.enqueue(msg.pose.position);
 
-	publish_pcd(create_pcd(msg.pose.position));
+	pcd_loader::publish_pcd(pcd_loader::create_pcd(msg.pose.position));
 }
 
-void publish_dragged_pcd(const geometry_msgs::PoseWithCovarianceStamped& msg)
+void pcd_loader::publish_dragged_pcd(const geometry_msgs::PoseWithCovarianceStamped& msg)
 {
 	tf::TransformListener listener;
 	tf::StampedTransform transform;
@@ -406,26 +351,26 @@ void publish_dragged_pcd(const geometry_msgs::PoseWithCovarianceStamped& msg)
 	p.x = msg.pose.pose.position.x + transform.getOrigin().x();
 	p.y = msg.pose.pose.position.y + transform.getOrigin().y();
 
-	if (can_download)
-		request_queue.enqueue(p);
+	if (pcd_loader::can_download)
+		pcd_loader::request_queue.enqueue(p);
 
-	publish_pcd(create_pcd(p));
+	pcd_loader::publish_pcd(pcd_loader::create_pcd(p));
 }
 
-void request_lookahead_download(const aslan_msgs::LaneArray& msg)
+void pcd_loader::request_lookahead_download(const aslan_msgs::LaneArray& msg)
 {
-	request_queue.clear_look_ahead();
+	pcd_loader::request_queue.clear_look_ahead();
 
 	for (const aslan_msgs::Lane& l : msg.lanes) {
 		size_t end = l.waypoints.size() - 1;
 		double distance = 0;
-		double threshold = (MARGIN_UNIT / 2) + margin; // XXX better way?
+		double threshold = (pcd_loader::MARGIN_UNIT / 2) + pcd_loader::margin; // XXX better way?
 		for (size_t i = 0; i <= end; ++i) {
 			if (i == 0 || i == end) {
 				geometry_msgs::Point p;
 				p.x = l.waypoints[i].pose.pose.position.x;
 				p.y = l.waypoints[i].pose.pose.position.y;
-				request_queue.enqueue_look_ahead(p);
+				pcd_loader::request_queue.enqueue_look_ahead(p);
 			} else {
 				geometry_msgs::Point p1, p2;
 				p1.x = l.waypoints[i].pose.pose.position.x;
@@ -434,7 +379,7 @@ void request_lookahead_download(const aslan_msgs::LaneArray& msg)
 				p2.y = l.waypoints[i - 1].pose.pose.position.y;
 				distance += hypot(p2.x - p1.x, p2.y - p1.y);
 				if (distance > threshold) {
-					request_queue.enqueue_look_ahead(p1);
+					pcd_loader::request_queue.enqueue_look_ahead(p1);
 					distance = 0;
 				}
 			}
@@ -442,7 +387,7 @@ void request_lookahead_download(const aslan_msgs::LaneArray& msg)
 	}
 }
 
-void print_usage()
+void pcd_loader::print_usage()
 {
 	ROS_ERROR_STREAM("Usage:");
 	ROS_ERROR_STREAM("rosrun map_file points_map_loader noupdate [PCD]...");
@@ -450,9 +395,7 @@ void print_usage()
 	ROS_ERROR_STREAM("rosrun map_file points_map_loader {1x1|3x3|5x5|7x7|9x9} download");
 }
 
-} // namespace
-
-int main(int argc, char **argv)
+int pcd_loader::RUN(int argc, char **argv)
 {
 	ros::init(argc, argv, "points_map_loader");
 
@@ -460,26 +403,26 @@ int main(int argc, char **argv)
 
 	std::string area(argv[1]);
 	if (area == "noupdate")
-		margin = -1;
+		pcd_loader::margin = -1;
 	else if (area == "1x1")
-		margin = 0;
+		pcd_loader::margin = 0;
 	else if (area == "3x3")
-		margin = MARGIN_UNIT * 1;
+		pcd_loader::margin = pcd_loader::MARGIN_UNIT * 1;
 	else if (area == "5x5")
-		margin = MARGIN_UNIT * 2;
+		pcd_loader::margin = pcd_loader::MARGIN_UNIT * 2;
 	else if (area == "7x7")
-		margin = MARGIN_UNIT * 3;
+		pcd_loader::margin = pcd_loader::MARGIN_UNIT * 3;
 	else if (area == "9x9")
-		margin = MARGIN_UNIT * 4;
+		pcd_loader::margin = pcd_loader::MARGIN_UNIT * 4;
 	else {
-		print_usage();
+		pcd_loader::print_usage();
 		return EXIT_FAILURE;
 	}
 
 	std::string arealist_path;
 	std::vector<std::string> pcd_paths;
-	if (margin < 0) {
-		can_download = false;
+	if (pcd_loader::margin < 0) {
+		pcd_loader::can_download = false;
 		for (int i = 2; i < argc; ++i) {
 			std::string path(argv[i]);
 			pcd_paths.push_back(path);
@@ -487,7 +430,7 @@ int main(int argc, char **argv)
 	} else {
 		std::string mode(argv[2]);
 		if (mode == "download") {
-			can_download = true;
+			pcd_loader::can_download = true;
 			std::string host_name;
 			n.param<std::string>("points_map_loader/host_name", host_name, HTTP_HOSTNAME);
 			int port;
@@ -496,9 +439,9 @@ int main(int argc, char **argv)
 			n.param<std::string>("points_map_loader/user", user, HTTP_USER);
 			std::string password;
 			n.param<std::string>("points_map_loader/password", password, HTTP_PASSWORD);
-			gf = GetFile(host_name, port, user, password);
+			pcd_loader::gf = GetFile(host_name, port, user, password);
 		} else {
-			can_download = false;
+			pcd_loader::can_download = false;
 			arealist_path += argv[2];
 			for (int i = 3; i < argc; ++i) {
 				std::string path(argv[i]);
@@ -507,46 +450,46 @@ int main(int argc, char **argv)
 		}
 	}
 
-	pcd_pub = n.advertise<sensor_msgs::PointCloud2>("points_map", 1, true);
-	stat_pub = n.advertise<std_msgs::Bool>("pmap_stat", 1, true);
+	pcd_loader::pcd_pub = n.advertise<sensor_msgs::PointCloud2>("points_map", 1, true);
+	pcd_loader::stat_pub = n.advertise<std_msgs::Bool>("pmap_stat", 1, true);
 
-	stat_msg.data = false;
-	stat_pub.publish(stat_msg);
+	pcd_loader::stat_msg.data = false;
+	pcd_loader::stat_pub.publish(pcd_loader::stat_msg);
 
 	ros::Subscriber gnss_sub;
 	ros::Subscriber current_sub;
 	ros::Subscriber initial_sub;
 	ros::Subscriber waypoints_sub;
-	if (margin < 0) {
+	if (pcd_loader::margin < 0) {
 		int err = 0;
-		publish_pcd(create_pcd(pcd_paths, &err), &err);
+		pcd_loader::publish_pcd(pcd_loader::create_pcd(pcd_paths, &err), &err);
 	} else {
-		n.param<int>("points_map_loader/update_rate", update_rate, DEFAULT_UPDATE_RATE);
-		fallback_rate = update_rate * 2; // XXX better way?
+		n.param<int>("points_map_loader/pcd_loader::update_rate", pcd_loader::update_rate, pcd_loader::DEFAULT_UPDATE_RATE);
+		pcd_loader::fallback_rate = pcd_loader::update_rate * 2; // XXX better way?
 
-		gnss_sub = n.subscribe("gnss_pose", 1000, publish_gnss_pcd);
-		current_sub = n.subscribe("current_pose", 1000, publish_current_pcd);
-		initial_sub = n.subscribe("initialpose", 1, publish_dragged_pcd);
+		gnss_sub = n.subscribe("gnss_pose", 1000, &pcd_loader::publish_gnss_pcd, this);
+		current_sub = n.subscribe("current_pose", 1000, &pcd_loader::publish_current_pcd, this);
+		initial_sub = n.subscribe("initialpose", 1, &pcd_loader::publish_dragged_pcd, this);
 
-		if (can_download) {
-			waypoints_sub = n.subscribe("traffic_waypoints_array", 1, request_lookahead_download);
+		if (pcd_loader::can_download) {
+			waypoints_sub = n.subscribe("traffic_waypoints_array", 1, &pcd_loader::request_lookahead_download, this);
 			try {
-				std::thread downloader(download_map);
+				std::thread downloader(&pcd_loader::download_map, this);
 				downloader.detach();
 			} catch (std::exception &ex) {
 				ROS_ERROR_STREAM("failed to create thread from " << ex.what());
 			}
 		} else {
-			AreaList areas = read_arealist(arealist_path);
+			AreaList areas = pcd_loader::read_arealist(arealist_path);
 			for (const Area& area : areas) {
 				for (const std::string& path : pcd_paths) {
 					if (path == area.path)
-						cache_arealist(area, downloaded_areas);
+						pcd_loader::cache_arealist(area, pcd_loader::downloaded_areas);
 				}
 			}
 		}
 
-		gnss_time = current_time = ros::Time::now();
+		pcd_loader::gnss_time = pcd_loader::current_time = ros::Time::now();
 	}
 
 	ros::spin();
